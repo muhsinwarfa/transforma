@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Defs_PROC_03_FEEDBACK" targetNamespace="http://transforma/bpmn">
+  <bpmn:process id="PROC_03_FEEDBACK" name="PROC-03 — Feedback collection (self + peer in parallel)" isExecutable="false">
+    <bpmn:startEvent id="F_Start" name="Feedback stage opens">
+      <bpmn:outgoing>f1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:parallelGateway id="F_Split" name="Collect in parallel">
+      <bpmn:incoming>f1</bpmn:incoming>
+      <bpmn:outgoing>f2</bpmn:outgoing>
+      <bpmn:outgoing>f3</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:task id="F_Self" name="Employee writes self-review">
+      <bpmn:incoming>f2</bpmn:incoming>
+      <bpmn:outgoing>f4</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="F_Peer" name="Approved peers submit confidential feedback (isolated per peer)">
+      <bpmn:incoming>f3</bpmn:incoming>
+      <bpmn:outgoing>f5</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:parallelGateway id="F_Join">
+      <bpmn:incoming>f4</bpmn:incoming>
+      <bpmn:incoming>f5</bpmn:incoming>
+      <bpmn:outgoing>f6</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:task id="F_Close" name="Close window (deadline reached or quorum met)">
+      <bpmn:incoming>f6</bpmn:incoming>
+      <bpmn:outgoing>f7</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="F_Gw" name="Peer responses &#62;= anonymity floor (min 3)?">
+      <bpmn:incoming>f7</bpmn:incoming>
+      <bpmn:outgoing>f8</bpmn:outgoing>
+      <bpmn:outgoing>f9</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="F_Include" name="Compile bundle with peer themes (no quotes, no attribution)">
+      <bpmn:incoming>f8</bpmn:incoming>
+      <bpmn:outgoing>f10</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="F_Exclude" name="Exclude peer content entirely; build from self-review; flag for manager">
+      <bpmn:incoming>f9</bpmn:incoming>
+      <bpmn:outgoing>f11</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="F_Merge">
+      <bpmn:incoming>f10</bpmn:incoming>
+      <bpmn:incoming>f11</bpmn:incoming>
+      <bpmn:outgoing>f12</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="F_End" name="Feedback bundle ready">
+      <bpmn:incoming>f12</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="f1" sourceRef="F_Start" targetRef="F_Split" />
+    <bpmn:sequenceFlow id="f2" sourceRef="F_Split" targetRef="F_Self" />
+    <bpmn:sequenceFlow id="f3" sourceRef="F_Split" targetRef="F_Peer" />
+    <bpmn:sequenceFlow id="f4" sourceRef="F_Self" targetRef="F_Join" />
+    <bpmn:sequenceFlow id="f5" sourceRef="F_Peer" targetRef="F_Join" />
+    <bpmn:sequenceFlow id="f6" sourceRef="F_Join" targetRef="F_Close" />
+    <bpmn:sequenceFlow id="f7" sourceRef="F_Close" targetRef="F_Gw" />
+    <bpmn:sequenceFlow id="f8" name="at or above floor" sourceRef="F_Gw" targetRef="F_Include" />
+    <bpmn:sequenceFlow id="f9" name="below floor" sourceRef="F_Gw" targetRef="F_Exclude" />
+    <bpmn:sequenceFlow id="f10" sourceRef="F_Include" targetRef="F_Merge" />
+    <bpmn:sequenceFlow id="f11" sourceRef="F_Exclude" targetRef="F_Merge" />
+    <bpmn:sequenceFlow id="f12" sourceRef="F_Merge" targetRef="F_End" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_PROC_03_FEEDBACK">
+    <bpmndi:BPMNPlane id="BPMNPlane_PROC_03_FEEDBACK" bpmnElement="PROC_03_FEEDBACK">
+      <bpmndi:BPMNShape id="F_Start_di" bpmnElement="F_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Split_di" bpmnElement="F_Split">
+        <dc:Bounds x="200" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Self_di" bpmnElement="F_Self">
+        <dc:Bounds x="325" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Join_di" bpmnElement="F_Join">
+        <dc:Bounds x="500" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Close_di" bpmnElement="F_Close">
+        <dc:Bounds x="625" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Gw_di" bpmnElement="F_Gw" isMarkerVisible="true">
+        <dc:Bounds x="800" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Include_di" bpmnElement="F_Include">
+        <dc:Bounds x="925" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Merge_di" bpmnElement="F_Merge" isMarkerVisible="true">
+        <dc:Bounds x="1100" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_End_di" bpmnElement="F_End">
+        <dc:Bounds x="1257" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Peer_di" bpmnElement="F_Peer">
+        <dc:Bounds x="325" y="170" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_Exclude_di" bpmnElement="F_Exclude">
+        <dc:Bounds x="925" y="170" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="f1_di" bpmnElement="f1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="200" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f2_di" bpmnElement="f2">
+        <di:waypoint x="250" y="70" />
+        <di:waypoint x="325" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f3_di" bpmnElement="f3">
+        <di:waypoint x="225" y="95" />
+        <di:waypoint x="225" y="210" />
+        <di:waypoint x="325" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f4_di" bpmnElement="f4">
+        <di:waypoint x="425" y="70" />
+        <di:waypoint x="500" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f6_di" bpmnElement="f6">
+        <di:waypoint x="550" y="70" />
+        <di:waypoint x="625" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f7_di" bpmnElement="f7">
+        <di:waypoint x="725" y="70" />
+        <di:waypoint x="800" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f8_di" bpmnElement="f8">
+        <di:waypoint x="850" y="70" />
+        <di:waypoint x="925" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f9_di" bpmnElement="f9">
+        <di:waypoint x="825" y="95" />
+        <di:waypoint x="825" y="210" />
+        <di:waypoint x="925" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f10_di" bpmnElement="f10">
+        <di:waypoint x="1025" y="70" />
+        <di:waypoint x="1100" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f12_di" bpmnElement="f12">
+        <di:waypoint x="1150" y="70" />
+        <di:waypoint x="1257" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f5_di" bpmnElement="f5">
+        <di:waypoint x="425" y="210" />
+        <di:waypoint x="525" y="210" />
+        <di:waypoint x="525" y="95" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f11_di" bpmnElement="f11">
+        <di:waypoint x="1025" y="210" />
+        <di:waypoint x="1125" y="210" />
+        <di:waypoint x="1125" y="95" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

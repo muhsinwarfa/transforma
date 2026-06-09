@@ -1,0 +1,458 @@
+/* ============================================================
+   TRANSFORMA — Foundation stylesheet
+   Built ON TOP of the Hogaan Design System.
+   :root tokens are copied VERBATIM from Hogaan's colors_and_type.css
+   (the source of truth). Everything below the token block is a
+   TRANSFORMA EXTENSION: components composed from Hogaan atoms/tokens.
+   No new fonts, colors, radii or shadows are introduced.
+   ============================================================ */
+
+:root {
+  /* ---- BRAND CORE (Hogaan, exact) ---- */
+  --navy: #00004d;
+  --blue: #0086ff;
+  --cyan: #00b7ff;
+  --blue-hover: #0077e6;
+  --blue-pressed: #005fba;
+  --blue-deep: #0068cc;
+
+  /* ---- SURFACE SYSTEM ---- */
+  --bg: #eaf4ff;
+  --bg-2: #d6e8fa;
+  --bg-3: #c2dcf5;
+  --paper: #f4f9ff;
+  --paper-sunken: #dcebfb;
+  --surface-field: #dcebfb;
+
+  /* ---- COMPOSITE SURFACES ---- */
+  --hero-gradient: linear-gradient(135deg, #eaf4ff 0%, #d6e8fa 50%, #c2dcf5 100%);
+  --ambient-stripes: repeating-linear-gradient(45deg, rgba(0,183,255,0.02) 0 1px, transparent 1px 14px);
+
+  /* ---- INK / TEXT ---- */
+  --ink-1: #00004d;
+  --ink-2: #6b6b7a;
+  --ink-3: #8a8794;
+  --ink-4: #bab6c2;
+  --on-accent: #ffffff;
+
+  /* ---- INTERACTION TINTS ---- */
+  --tint-blue: rgba(0,134,255,0.10);
+  --tint-cyan: rgba(0,183,255,0.06);
+
+  /* ---- STATUS / SEMANTIC (Hogaan) ---- */
+  --error: rgb(176,70,62);
+  --warn-bg: rgba(201,68,0,0.10);
+  --warn-text: rgb(180,55,0);
+
+  /* ---- HAIRLINES & SHADOWS ---- */
+  --hairline: rgba(0,0,77,0.08);
+  --hairline-strong: rgba(0,0,77,0.18);
+  --shadow-sm: 0 1px 2px rgba(0,0,77,0.04), 0 2px 6px rgba(0,0,77,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,77,0.06), 0 12px 32px rgba(0,0,77,0.08);
+  --shadow-lg: 0 22px 50px rgba(0,0,77,0.14);
+  --shadow-focus: 0 0 0 3px rgba(0,134,255,0.30);
+
+  /* ---- RADII ---- */
+  --r-chip: 999px;
+  --r-btn: 12px;
+  --r-card: 20px;
+  --r-hero: 28px;
+
+  /* ---- TYPE FAMILIES ---- */
+  --font-h: 'Lexend Deca', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-b: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---- MOTION ---- */
+  --ease: cubic-bezier(0.2,0.7,0.2,1);
+  --dur-fast: 180ms;
+  --dur: 300ms;
+  --dur-slow: 480ms;
+
+  /* ---- SEMANTIC TYPE ---- */
+  --display: 500 38px/1.05 var(--font-h);
+  --h1: 500 34px/1.12 var(--font-h);
+  --h2: 600 22px/1.25 var(--font-h);
+  --h3: 600 18px/1.3 var(--font-h);
+  --title: 600 15px/1.3 var(--font-h);
+  --body: 400 15px/1.55 var(--font-b);
+  --body-sm: 400 13.5px/1.5 var(--font-b);
+  --label: 500 11px/1 var(--font-b);
+  --button: 600 15.5px/1 var(--font-b);
+  --code: 400 11px/1 var(--font-mono);
+
+  /* ---- TRANSFORMA EXTENSION TOKENS ----
+     Derived names only; values reuse Hogaan primitives. */
+  --tf-sidebar-w: 264px;
+  --tf-rail-w: 76px;
+  --tf-header-h: 64px;
+  --tf-bottombar-h: 64px;
+  --tf-touch: 44px;            /* WCAG minimum touch target */
+  --tf-locked-bg: rgba(0,0,77,0.06);   /* neutral, for Locked status */
+  --tf-locked-text: var(--ink-2);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; min-height: 100%;
+  background: var(--bg);
+  color: var(--ink-1);
+  font-family: var(--font-b);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- Ready-made semantic type classes (Hogaan) ---- */
+.t-display { font: var(--display); letter-spacing: -0.025em; color: var(--ink-1); margin: 0; }
+.t-h1   { font: var(--h1);   letter-spacing: -0.02em;  color: var(--ink-1); margin: 0; }
+.t-h2   { font: var(--h2);   letter-spacing: -0.01em;  color: var(--ink-1); margin: 0; }
+.t-h3   { font: var(--h3);   letter-spacing: -0.005em; color: var(--ink-1); margin: 0; }
+.t-title{ font: var(--title);letter-spacing: -0.005em; color: var(--ink-1); margin: 0; }
+.t-body { font: var(--body); color: var(--ink-2); margin: 0; }
+.t-body-sm { font: var(--body-sm); color: var(--ink-2); margin: 0; }
+.t-label{ font: var(--label); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); margin: 0; }
+.t-code { font: var(--code); letter-spacing: 0.05em; color: var(--ink-3); }
+.t-em   { font-family: var(--font-h); font-style: italic; font-weight: 500; color: var(--blue-deep); }
+
+/* ============================================================
+   WORDMARK (Hogaan typographic mark, retitled for Transforma tenant)
+   The "logo area" is a tenant slot: a small mark + the tenant name.
+   ============================================================ */
+.hg-wordmark { display: inline-flex; align-items: baseline; gap: 7px; line-height: 1; }
+.hg-wm-h { font-family: var(--font-b); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; color: var(--navy); }
+.hg-wm-dot { width: 5px; height: 5px; border-radius: 999px; background: var(--blue); transform: translateY(-2px); }
+.hg-wm-tag { font-family: var(--font-b); font-weight: 600; font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3); }
+.hg-wordmark[data-small="true"] .hg-wm-h { font-size: 16px; }
+
+/* Brand lockup — TRANSFORMA is the persistent product mark (typographic,
+   built from the Hogaan wordmark). Workspace context (the review cycle) sits
+   quietly below it. Class names kept (.tenant-logo / .mark /
+   .ten-name / .ten-product) so existing call sites & breakpoints don't change. */
+.tenant-logo { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.tenant-logo .mark {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--navy), #16357f);
+  color: var(--cyan);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-h); font-weight: 600; font-size: 17px;
+  box-shadow: var(--shadow-sm);
+}
+.tenant-logo .brand-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; gap: 2px; }
+.tenant-logo .ten-name { font-family: var(--font-b); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; color: var(--navy); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.tenant-logo .ten-name .brand-dot { width: 5px; height: 5px; border-radius: 999px; background: var(--blue); flex-shrink: 0; }
+.tenant-logo .ten-product { font-family: var(--font-b); font-weight: 600; font-size: 11px; letter-spacing: 0.01em; color: var(--ink-3); white-space: nowrap; }
+.tenant-logo[data-small="true"] .ten-name { font-size: 15px; }
+.tenant-logo[data-small="true"] .mark { width: 30px; height: 30px; font-size: 15px; }
+
+/* Workspace chip — tenant context where a chip reads cleaner than a stacked label */
+.ws-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-b); font-weight: 600; font-size: 12px; color: var(--ink-2); background: var(--paper-sunken); border: 1px solid var(--hairline); border-radius: 999px; padding: 4px 11px; white-space: nowrap; }
+.ws-chip .ws-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--blue); flex-shrink: 0; }
+
+/* ============================================================
+   BUTTONS — Hogaan hierarchy (primary, secondary, destructive, ghost, outline)
+   ============================================================ */
+.btn {
+  appearance: none; border: 1.5px solid transparent;
+  font-family: var(--font-b); font-weight: 600; font-size: 14.5px;
+  border-radius: var(--r-btn); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 0 18px; height: 44px; min-height: var(--tf-touch);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease);
+  white-space: nowrap; text-decoration: none; line-height: 1;
+}
+.btn svg { width: 18px; height: 18px; }
+.btn:active { transform: scale(0.985); }
+.btn:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.btn.sm { height: 36px; padding: 0 13px; font-size: 13px; min-height: 0; }
+.btn.lg { height: 52px; padding: 0 24px; font-size: 15.5px; }
+.btn.block { width: 100%; }
+
+.btn-primary { background: var(--blue); color: var(--on-accent); box-shadow: 0 6px 16px rgba(0,134,255,0.28), 0 1px 2px rgba(0,0,77,0.05); }
+.btn-primary:hover { background: var(--blue-deep); }
+.btn-primary:focus-visible { box-shadow: var(--shadow-focus), 0 6px 16px rgba(0,134,255,0.28); }
+.btn-primary:disabled { background: rgba(0,0,77,0.08); color: var(--ink-3); box-shadow: none; cursor: not-allowed; transform: none; }
+
+.btn-secondary { background: var(--paper); color: var(--ink-1); border-color: var(--hairline-strong); }
+.btn-secondary:hover { background: #fff; border-color: var(--navy); }
+.btn-secondary:disabled { color: var(--ink-3); border-color: var(--hairline); cursor: not-allowed; }
+
+.btn-outline { background: transparent; color: var(--blue-deep); border-color: var(--blue); }
+.btn-outline:hover { background: var(--tint-blue); }
+
+.btn-ghost { background: transparent; color: var(--ink-2); border-color: transparent; }
+.btn-ghost:hover { background: rgba(0,0,77,0.04); color: var(--ink-1); }
+
+.btn-destructive { background: transparent; color: var(--error); border-color: rgba(176,70,62,0.4); }
+.btn-destructive:hover { background: rgba(176,70,62,0.08); border-color: var(--error); }
+.btn-destructive.solid { background: var(--error); color: #fff; border-color: var(--error); box-shadow: 0 6px 16px rgba(176,70,62,0.24); }
+.btn-destructive.solid:hover { background: rgb(150,56,49); }
+
+/* Icon-only button (Hogaan .iconbtn) */
+.iconbtn {
+  width: 44px; height: 44px; min-width: var(--tf-touch); min-height: var(--tf-touch);
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; border: none; background: transparent; color: var(--ink-1);
+  cursor: pointer; transition: background var(--dur-fast) var(--ease); position: relative;
+}
+.iconbtn:hover { background: var(--tint-blue); }
+.iconbtn:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.iconbtn svg { width: 22px; height: 22px; }
+
+/* ============================================================
+   STATUS BADGE SET — review lifecycle
+   Draft → In Review → Locked → Flagged.
+   Built from Hogaan semantic tokens. Locked = neutral, Flagged = warning.
+   ============================================================ */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-b); font-weight: 600; font-size: 11.5px; letter-spacing: 0.02em;
+  padding: 4px 10px 4px 9px; border-radius: 999px; line-height: 1.2;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; flex-shrink: 0; }
+.badge.draft     { color: var(--ink-2);     background: rgba(0,0,77,0.05);   border-color: var(--hairline); }
+.badge.in-review { color: var(--blue-deep);  background: var(--tint-blue);    border-color: rgba(0,134,255,0.22); }
+.badge.awaiting-ack { color: #006a86; background: rgba(0,183,255,0.12); border-color: rgba(0,183,255,0.34); }
+.badge.locked    { color: var(--tf-locked-text); background: var(--tf-locked-bg); border-color: var(--hairline-strong); }
+.badge.flagged   { color: var(--warn-text);  background: var(--warn-bg);      border-color: rgba(201,68,0,0.25); }
+.badge.sm { font-size: 10.5px; padding: 3px 8px; }
+
+/* Lock glyph inside Locked badge instead of dot */
+.badge.locked .dot { width: auto; height: auto; background: none; }
+
+/* ============================================================
+   FORM FIELD PATTERNS — text / textarea / select
+   Focus / filled / error / disabled. Composed from Hogaan --surface-field.
+   ============================================================ */
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field-label { font-family: var(--font-b); font-weight: 600; font-size: 13px; color: var(--ink-1); display: flex; align-items: center; gap: 6px; }
+.field-label .req { color: var(--error); }
+.field-hint { font-family: var(--font-b); font-size: 12.5px; color: var(--ink-3); }
+
+.input, .textarea, .select {
+  appearance: none; width: 100%;
+  font-family: var(--font-b); font-size: 15px; color: var(--ink-1);
+  background: var(--surface-field);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-btn);
+  padding: 0 14px; height: 48px; min-height: var(--tf-touch);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.textarea { height: auto; min-height: 104px; padding: 12px 14px; line-height: 1.55; resize: vertical; }
+.input::placeholder, .textarea::placeholder { color: var(--ink-4); }
+.input:hover, .textarea:hover, .select:hover { border-color: var(--hairline-strong); }
+.input:focus, .textarea:focus, .select:focus {
+  outline: none; background: var(--paper);
+  border-color: var(--blue); box-shadow: var(--shadow-focus);
+}
+.input.is-filled, .textarea.is-filled { background: var(--paper); border-color: var(--hairline); }
+.input.is-error, .textarea.is-error, .select.is-error { border-color: var(--error); box-shadow: 0 0 0 3px rgba(176,70,62,0.18); }
+.input:disabled, .textarea:disabled, .select:disabled {
+  background: rgba(0,0,77,0.04); color: var(--ink-3); cursor: not-allowed; border-color: transparent;
+}
+.field-msg { font-family: var(--font-b); font-size: 12.5px; color: var(--error); display: flex; align-items: center; gap: 6px; }
+.field-msg svg { width: 14px; height: 14px; }
+
+/* Select wrapper with chevron */
+.select-wrap { position: relative; }
+.select-wrap select { padding-right: 40px; cursor: pointer; }
+.select-wrap .chev { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--ink-3); display: inline-flex; }
+
+/* Password field with eye toggle */
+.input-affix { position: relative; }
+.input-affix .input { padding-right: 48px; }
+.input-affix .affix-btn {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px; border: none; background: transparent; color: var(--ink-3);
+  border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.input-affix .affix-btn:hover { background: var(--tint-blue); color: var(--ink-1); }
+.input-affix .affix-btn:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+
+/* ============================================================
+   CARD SHELL — flexible content card (becomes review/draft card later)
+   ============================================================ */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  box-shadow: 0 1px 0 rgba(0,0,77,0.02);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.card.pad { padding: 22px; }
+.card.interactive { cursor: pointer; }
+.card.interactive:hover { border-color: var(--hairline-strong); box-shadow: var(--shadow-md); }
+.card.interactive:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-color: var(--blue); }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.card-foot { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+
+/* ============================================================
+   PAGE HEADER — title + status badge + primary actions
+   ============================================================ */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+.page-header .ph-left { min-width: 0; }
+.page-header .ph-eyebrow { margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.page-header .ph-title { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.page-header h1 { font: var(--h1); font-size: 28px; letter-spacing: -0.02em; color: var(--ink-1); margin: 0; }
+.page-header .ph-sub { font: var(--body); color: var(--ink-2); margin: 8px 0 0; max-width: 60ch; }
+.page-header .ph-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+@media (max-width: 640px) {
+  .page-header h1 { font-size: 24px; }
+  .page-header .ph-actions { width: 100%; }
+  .page-header .ph-actions .btn { flex: 1; }
+}
+
+/* ============================================================
+   LIST / TABLE — queues and rosters
+   ============================================================ */
+.tf-table { width: 100%; border-collapse: collapse; font-family: var(--font-b); }
+.tf-table thead th {
+  text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-3); padding: 0 16px 12px; border-bottom: 1px solid var(--hairline);
+}
+.tf-table tbody td { padding: 14px 16px; border-bottom: 1px solid var(--hairline); font-size: 14px; color: var(--ink-1); vertical-align: middle; }
+.tf-table tbody tr { transition: background var(--dur-fast) var(--ease); }
+.tf-table tbody tr:hover { background: rgba(0,134,255,0.04); }
+.tf-table tbody tr:last-child td { border-bottom: none; }
+.tf-table .cell-strong { font-weight: 600; }
+.tf-table .cell-muted { color: var(--ink-2); }
+.tf-table .row-person { display: flex; align-items: center; gap: 11px; }
+
+/* Mobile: tables reflow into stacked rows */
+.list-rows { display: flex; flex-direction: column; }
+.list-row {
+  display: flex; align-items: center; gap: 13px; padding: 14px 4px;
+  border-bottom: 1px solid var(--hairline); min-height: 56px;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row .lr-main { min-width: 0; flex: 1; }
+.list-row .lr-title { font-family: var(--font-h); font-weight: 600; font-size: 14.5px; color: var(--ink-1); }
+.list-row .lr-meta { font-family: var(--font-b); font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+
+/* Avatar */
+.avatar {
+  width: 36px; height: 36px; border-radius: 999px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-h); font-weight: 600; font-size: 13px; color: var(--on-accent);
+  background: linear-gradient(135deg, var(--blue), var(--blue-deep));
+}
+.avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+.avatar.lg { width: 44px; height: 44px; font-size: 16px; }
+.avatar.navy { background: linear-gradient(135deg, var(--navy), #1a3a7a); color: var(--cyan); }
+
+/* ============================================================
+   UNIVERSAL STATES — empty / loading / error
+   ============================================================ */
+.state-block { text-align: center; padding: 44px 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.state-block .state-glyph {
+  width: 56px; height: 56px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--tint-blue); color: var(--blue);
+}
+.state-block.is-error .state-glyph { background: var(--warn-bg); color: var(--warn-text); }
+.state-block .state-glyph svg { width: 26px; height: 26px; }
+.state-block h3 { font: var(--h3); font-size: 17px; color: var(--ink-1); margin: 0; }
+.state-block p { font: var(--body-sm); color: var(--ink-2); margin: 0; max-width: 38ch; }
+
+/* Skeleton loading */
+.skeleton { background: linear-gradient(90deg, rgba(0,0,77,0.05) 25%, rgba(0,0,77,0.09) 37%, rgba(0,0,77,0.05) 63%); background-size: 400% 100%; animation: tfShimmer 1.4s var(--ease) infinite; border-radius: 8px; }
+@keyframes tfShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.spinner { width: 22px; height: 22px; color: var(--blue); animation: tfSpin 800ms linear infinite; }
+@keyframes tfSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .spinner { animation: none; }
+}
+
+/* ============================================================
+   TOAST / INLINE NOTIFICATION
+   ============================================================ */
+.toast-stack { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 200; align-items: center; pointer-events: none; }
+.toast {
+  display: inline-flex; align-items: center; gap: 11px; pointer-events: auto;
+  background: var(--navy); color: #eaf4ff;
+  padding: 12px 16px; border-radius: 14px; box-shadow: var(--shadow-lg);
+  font-family: var(--font-b); font-size: 13.5px; font-weight: 500;
+  max-width: min(440px, calc(100vw - 32px));
+  animation: toastIn var(--dur) var(--ease) both;
+}
+.toast .t-ico { display: inline-flex; flex-shrink: 0; }
+.toast.ok .t-ico { color: var(--cyan); }
+.toast.warn { background: #5a2c00; color: #ffe9d6; }
+.toast.warn .t-ico { color: #ffb37a; }
+.toast .t-close { margin-left: 6px; background: transparent; border: none; color: rgba(255,255,255,0.6); cursor: pointer; display: inline-flex; padding: 2px; border-radius: 999px; }
+.toast .t-close:hover { color: #fff; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Inline notification (banner) */
+.notice {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; border-radius: var(--r-btn);
+  font-family: var(--font-b); font-size: 13.5px; line-height: 1.5;
+  border: 1px solid transparent;
+}
+.notice .n-ico { flex-shrink: 0; display: inline-flex; margin-top: 1px; }
+.notice .n-ico svg { width: 18px; height: 18px; }
+.notice strong { font-weight: 600; }
+.notice.info  { background: var(--tint-blue); border-color: rgba(0,134,255,0.22); color: var(--ink-1); }
+.notice.info .n-ico { color: var(--blue); }
+.notice.warn  { background: var(--warn-bg); border-color: rgba(201,68,0,0.25); color: var(--ink-1); }
+.notice.warn .n-ico { color: var(--warn-text); }
+.notice.error { background: rgba(176,70,62,0.08); border-color: rgba(176,70,62,0.3); color: var(--ink-1); }
+.notice.error .n-ico { color: var(--error); }
+
+/* ============================================================
+   PILL / CHIP & SEGMENTED CONTROL (role/context switcher)
+   ============================================================ */
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-b); font-weight: 600; font-size: 12.5px;
+  padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: var(--tint-blue); color: var(--blue-deep);
+  border: 1px solid rgba(0,134,255,0.22);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.chip:hover { background: rgba(0,134,255,0.16); }
+
+.segmented {
+  display: inline-flex; background: var(--paper-sunken); border-radius: 999px; padding: 4px; gap: 2px;
+  border: 1px solid var(--hairline);
+}
+.segmented button {
+  appearance: none; border: none; background: transparent; cursor: pointer;
+  font-family: var(--font-b); font-weight: 600; font-size: 13px; color: var(--ink-2);
+  padding: 0 15px; height: 38px; min-height: var(--tf-touch); border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  white-space: nowrap;
+}
+.segmented button:hover { color: var(--ink-1); }
+.segmented button[aria-pressed="true"], .segmented button.active {
+  background: var(--paper); color: var(--ink-1); box-shadow: var(--shadow-sm);
+}
+.segmented button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.segmented .seg-count { font-size: 11px; font-weight: 700; background: rgba(0,0,77,0.08); color: var(--ink-2); border-radius: 999px; padding: 1px 7px; min-width: 18px; text-align: center; }
+.segmented button.active .seg-count { background: var(--tint-blue); color: var(--blue-deep); }
+
+/* ============================================================
+   TOKEN ANNOTATION LAYER
+   Reveals the structural role token behind every tenant label.
+   ============================================================ */
+.tok {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.02em;
+  color: var(--blue-deep); background: rgba(0,183,255,0.10);
+  border: 1px dashed rgba(0,134,255,0.4); border-radius: 6px; padding: 1px 6px;
+  vertical-align: middle; white-space: nowrap;
+}
+body:not(.show-tokens) .tok { display: none !important; }
+
+/* ============================================================
+   FOCUS-VISIBLE GLOBAL (WCAG AA keyboard)
+   ============================================================ */
+a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+  outline: none; box-shadow: var(--shadow-focus); border-radius: 6px;
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Transforma — Foundation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/transforma.css" />
+<style>
+  body { background: var(--ambient-stripes), var(--hero-gradient); min-height: 100vh; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 64px 28px 96px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 40px; }
+  .eyebrow { font: var(--label); letter-spacing: 0.18em; text-transform: uppercase; color: var(--blue); display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+  h1.hero { font-family: var(--font-h); font-weight: 500; font-size: 46px; line-height: 1.05; letter-spacing: -0.03em; color: var(--ink-1); margin: 0 0 16px; max-width: 18ch; text-wrap: balance; }
+  .lede { font: var(--body); font-size: 17px; color: var(--ink-2); max-width: 62ch; margin: 0; text-wrap: pretty; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-top: 44px; }
+  a.dcard { text-decoration: none; display: flex; flex-direction: column; background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-card); padding: 26px; box-shadow: var(--shadow-sm); transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+  a.dcard:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--hairline-strong); }
+  a.dcard:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+  .dcard .ico { width: 48px; height: 48px; border-radius: 14px; background: var(--tint-blue); color: var(--blue); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .dcard h2 { font-family: var(--font-h); font-weight: 600; font-size: 19px; letter-spacing: -0.01em; color: var(--ink-1); margin: 0 0 7px; }
+  .dcard p { font: var(--body-sm); color: var(--ink-2); margin: 0 0 18px; flex: 1; }
+  .dcard .go { font-family: var(--font-b); font-weight: 600; font-size: 13.5px; color: var(--blue-deep); display: inline-flex; align-items: center; gap: 6px; }
+  a.dcard:hover .go { gap: 9px; }
+
+  .meta { margin-top: 44px; padding: 22px 24px; background: rgba(244,249,255,0.6); border: 1px solid var(--hairline); border-radius: var(--r-card); display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 18px 28px; }
+  .meta dt { font: var(--label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 5px; }
+  .meta dd { font-family: var(--font-b); font-size: 13.5px; color: var(--ink-1); margin: 0; line-height: 1.5; }
+  .meta dd .tok-inline { font-family: var(--font-mono); font-size: 11px; color: var(--blue-deep); }
+  .note { margin-top: 26px; font: var(--body-sm); color: var(--ink-3); display: flex; gap: 9px; align-items: flex-start; }
+  .note svg { flex-shrink: 0; margin-top: 1px; color: var(--blue); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="tenant-logo">
+      <span class="mark">T</span>
+      <span class="brand-stack"><span class="ten-name">Transforma<span class="brand-dot"></span></span><span class="ten-product">H1 2026 Review</span></span>
+    </div>
+    <span class="badge in-review"><span class="dot"></span>Foundation pass</span>
+  </div>
+
+  <div class="eyebrow"><span>Hogaan Design System</span><span>·</span><span>Light mode</span></div>
+  <h1 class="hero">Transforma foundation</h1>
+  <p class="lede">The shared shell, the full auth surface, the responsive system and the reusable component vocabulary that every later screen — Subject, Peer, Approver, Administrator — will build on. One adaptive app that reshapes to the roles a person holds. Role words are tenant-configured labels, never hardcoded; the word “AI” never appears.</p>
+
+  <div class="cards">
+    <a class="dcard" href="prototype/Transforma Prototype.html">
+      <span class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M7 4v5"></path></svg></span>
+      <h2>Interactive prototype</h2>
+      <p>The working app — sign in, move through the role-aware shell, fire toasts, switch the role filter, and walk every auth state. Resize the window to see mobile, tablet and desktop.</p>
+      <span class="go">Open prototype →</span>
+    </a>
+    <a class="dcard" href="Foundation Canvas.html">
+      <span class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></span>
+      <h2>Foundation canvas</h2>
+      <p>Every screen and state framed side by side at mobile, tablet and desktop — the shell, the My-tasks hub, all auth states, and the component sheet. Pan, zoom and open any frame fullscreen.</p>
+      <span class="go">Open canvas →</span>
+    </a>
+    <a class="dcard" href="Component Sheet.html">
+      <span class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path><circle cx="19" cy="18" r="2"></circle></svg></span>
+      <h2>Component &amp; pattern sheet</h2>
+      <p>The shared vocabulary with key states — status badges, buttons, form fields, cards, page headers, tables, the role switcher, universal states, toasts — plus the reuse-vs-extension inventory.</p>
+      <span class="go">Open sheet →</span>
+    </a>
+  </div>
+
+  <dl class="meta">
+    <div><dt>Workspace</dt><dd>H1 2026 Review</dd></div>
+    <div><dt>Roles (label → token)</dt><dd>Team&nbsp;Member <span class="tok-inline">{subject_label}</span> · Peer <span class="tok-inline">{peer_label}</span> · Manager <span class="tok-inline">{approver_label}</span> · People&nbsp;Ops <span class="tok-inline">{admin_label}</span></dd></div>
+    <div><dt>Lifecycle</dt><dd>Draft → In review → Locked → Flagged</dd></div>
+    <div><dt>Breakpoints</dt><dd>&lt;700 mobile · 700–1023 tablet · 1024–1439 laptop · ≥1440 desktop</dd></div>
+  </dl>
+
+  <p class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span>Tip — open <strong>My review</strong> to walk the subject path end-to-end (nominate peers → self-review & peer feedback in parallel → in review → read & acknowledge or flag → locked), or use the per-track <strong>states</strong> control (bottom-right of each section) to jump to any state. Toggle <strong>Show role tokens</strong> in the user menu to reveal the configurable label behind every role word.</span></p>
+</div>
+</body>
+</html>

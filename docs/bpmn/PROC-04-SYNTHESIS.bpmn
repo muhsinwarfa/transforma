@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Defs_PROC_04_SYNTHESIS" targetNamespace="http://transforma/bpmn">
+  <bpmn:process id="PROC_04_SYNTHESIS" name="PROC-04 — Narrative synthesis (no rating produced)" isExecutable="false">
+    <bpmn:startEvent id="N_Start" name="Feedback bundle ready">
+      <bpmn:outgoing>n1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="N_Write" name="Synthesize draft narrative from real feedback (themes only; no quotes; no attribution)">
+      <bpmn:incoming>n1</bpmn:incoming>
+      <bpmn:incoming>n6</bpmn:incoming>
+      <bpmn:outgoing>n2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="N_Check" name="Quality and anonymity checks (formatting / unsupported-claim / toxicity / no peer quotes or single-source identifiers)">
+      <bpmn:incoming>n2</bpmn:incoming>
+      <bpmn:outgoing>n3</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="N_Pass" name="Checks pass?">
+      <bpmn:incoming>n3</bpmn:incoming>
+      <bpmn:outgoing>n4</bpmn:outgoing>
+      <bpmn:outgoing>n5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="N_Retry" name="Attempts &#60; 3?">
+      <bpmn:incoming>n5</bpmn:incoming>
+      <bpmn:outgoing>n6</bpmn:outgoing>
+      <bpmn:outgoing>n7</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="N_Flag" name="Flag draft for manual rework by manager">
+      <bpmn:incoming>n7</bpmn:incoming>
+      <bpmn:outgoing>n9</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="N_Ready" name="Draft narrative ready">
+      <bpmn:incoming>n4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="N_ReadyFlagged" name="Draft narrative ready (flagged)">
+      <bpmn:incoming>n9</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="n1" sourceRef="N_Start" targetRef="N_Write" />
+    <bpmn:sequenceFlow id="n2" sourceRef="N_Write" targetRef="N_Check" />
+    <bpmn:sequenceFlow id="n3" sourceRef="N_Check" targetRef="N_Pass" />
+    <bpmn:sequenceFlow id="n4" name="pass" sourceRef="N_Pass" targetRef="N_Ready" />
+    <bpmn:sequenceFlow id="n5" name="fail" sourceRef="N_Pass" targetRef="N_Retry" />
+    <bpmn:sequenceFlow id="n6" name="yes (regenerate with issues)" sourceRef="N_Retry" targetRef="N_Write" />
+    <bpmn:sequenceFlow id="n7" name="no (max reached)" sourceRef="N_Retry" targetRef="N_Flag" />
+    <bpmn:sequenceFlow id="n9" sourceRef="N_Flag" targetRef="N_ReadyFlagged" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_PROC_04_SYNTHESIS">
+    <bpmndi:BPMNPlane id="BPMNPlane_PROC_04_SYNTHESIS" bpmnElement="PROC_04_SYNTHESIS">
+      <bpmndi:BPMNShape id="N_Start_di" bpmnElement="N_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_Write_di" bpmnElement="N_Write">
+        <dc:Bounds x="175" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_Check_di" bpmnElement="N_Check">
+        <dc:Bounds x="325" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_Pass_di" bpmnElement="N_Pass" isMarkerVisible="true">
+        <dc:Bounds x="500" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_Ready_di" bpmnElement="N_Ready">
+        <dc:Bounds x="657" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_Retry_di" bpmnElement="N_Retry" isMarkerVisible="true">
+        <dc:Bounds x="800" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_Flag_di" bpmnElement="N_Flag">
+        <dc:Bounds x="925" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_ReadyFlagged_di" bpmnElement="N_ReadyFlagged">
+        <dc:Bounds x="1107" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="n1_di" bpmnElement="n1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="175" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="n2_di" bpmnElement="n2">
+        <di:waypoint x="275" y="70" />
+        <di:waypoint x="325" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="n3_di" bpmnElement="n3">
+        <di:waypoint x="425" y="70" />
+        <di:waypoint x="500" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="n4_di" bpmnElement="n4">
+        <di:waypoint x="550" y="70" />
+        <di:waypoint x="657" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="n5_di" bpmnElement="n5">
+        <di:waypoint x="525" y="95" />
+        <di:waypoint x="525" y="140" />
+        <di:waypoint x="825" y="140" />
+        <di:waypoint x="825" y="95" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="n6_di" bpmnElement="n6">
+        <di:waypoint x="825" y="95" />
+        <di:waypoint x="825" y="140" />
+        <di:waypoint x="225" y="140" />
+        <di:waypoint x="225" y="110" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="n7_di" bpmnElement="n7">
+        <di:waypoint x="850" y="70" />
+        <di:waypoint x="925" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="n9_di" bpmnElement="n9">
+        <di:waypoint x="1025" y="70" />
+        <di:waypoint x="1107" y="70" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

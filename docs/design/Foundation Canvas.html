@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Transforma — Foundation Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; height: 100%; }
+  .frame { width: 100%; height: 100%; border: 0; display: block; background: #eaf4ff; }
+  .ab-shell { width: 100%; height: 100%; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,77,0.08); background: #eaf4ff; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="prototype/design-canvas.jsx"></script>
+<script type="text/babel">
+const PROTO = 'prototype/Transforma Prototype.html';
+function Frame({ hash }) {
+  return <div className="ab-shell"><iframe className="frame" src={`${PROTO}${hash || ''}`} title={hash} /></div>;
+}
+function Sheet() {
+  return <div className="ab-shell"><iframe className="frame" src="Component Sheet.html" title="Component sheet" /></div>;
+}
+
+function CanvasApp() {
+  return (
+    <DesignCanvas title="Transforma — Foundation" subtitle="H1 2026 Review · Hogaan Design System · light mode">
+      <DCSection id="shell" title="App shell — responsive" subtitle="Same role-aware shell, three breakpoints. Sidebar (≥1024) → icon rail (700–1023) → bottom bar (<700).">
+        <DCArtboard id="shell-desktop" label="Desktop · 1280×800 · full sidebar" width={1280} height={800}><Frame hash="#app/home" /></DCArtboard>
+        <DCArtboard id="shell-tablet" label="Tablet · 834×900 · icon rail" width={834} height={900}><Frame hash="#app/home" /></DCArtboard>
+        <DCArtboard id="shell-mobile" label="Mobile · 390×780 · bottom bar" width={390} height={780}><Frame hash="#app/home" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="hub" title="Home / My-tasks hub" subtitle="The post-login landing — one unified hub surfacing tasks across every role a person holds. Cards are placeholders; the layout is the deliverable.">
+        <DCArtboard id="hub-tokens" label="Hub · role tokens revealed · 1180×860" width={1180} height={860}><Frame hash="#app/home/tokens" /></DCArtboard>
+        <DCArtboard id="hub-approvals" label="Approver queue · table pattern · 1180×860" width={1180} height={860}><Frame hash="#app/approvals/tokens" /></DCArtboard>
+        <DCArtboard id="hub-mobile" label="Hub · mobile · 390×860" width={390} height={860}><Frame hash="#app/home" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="subject" title="Subject track — your own review" subtitle="Mobile-first. Nominate peers → (self-review ∥ peer feedback, in parallel) → in review → reveal & acknowledge/flag → locked (response stored beside). Walkable via 'My review'.">
+        <DCArtboard id="sj-nom" label="Nominate peer reviewers · start · 1100×900" width={1100} height={900}><Frame hash="#app/review/nominate" /></DCArtboard>
+        <DCArtboard id="sj-nom-pending" label="Nominations · pending approval · 460×620" width={460} height={620}><Frame hash="#app/review/nominate-pending" /></DCArtboard>
+        <DCArtboard id="sj-nom-changes" label="Nominations · changes requested · 460×620" width={460} height={620}><Frame hash="#app/review/nominate-changes" /></DCArtboard>
+        <DCArtboard id="sj-self-m" label="Self-review · in progress (parallel note) · mobile · 390×940" width={390} height={940}><Frame hash="#app/review/self-progress" /></DCArtboard>
+        <DCArtboard id="sj-submitted" label="Self-review · submitted · 460×900" width={460} height={900}><Frame hash="#app/review/self-submitted" /></DCArtboard>
+        <DCArtboard id="sj-status" label="My review · in review (self ∥ peer) · 1100×860" width={1100} height={860}><Frame hash="#app/review/status" /></DCArtboard>
+        <DCArtboard id="sj-ready" label="Ready to read · acknowledge / flag (pre-lock) · 900×1140" width={900} height={1140}><Frame hash="#app/review/ready" /></DCArtboard>
+        <DCArtboard id="sj-ready-m" label="Ready to read · mobile · 390×1080" width={390} height={1080}><Frame hash="#app/review/ready" /></DCArtboard>
+        <DCArtboard id="sj-flag-form" label="Flag / disagree · written response · 640×900" width={640} height={900}><Frame hash="#app/review/flag-form" /></DCArtboard>
+        <DCArtboard id="sj-locked-ack" label="Locked · acknowledged + response beside · 900×1180" width={900} height={1180}><Frame hash="#app/review/locked-ack" /></DCArtboard>
+        <DCArtboard id="sj-locked-flag" label="Locked · flagged + response beside · 900×1180" width={900} height={1180}><Frame hash="#app/review/locked-flagged" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="peer" title="Peer track — feedback on someone else" subtitle="Mobile-first. A person can be asked about several people at once. List of requests (each scoped to one subject, with deadline) → form → submitted; plus closed and decline states. Walkable via 'Peer feedback'.">
+        <DCArtboard id="pe-list-d" label="Requests · all pending (multiple) · desktop · 1040×900" width={1040} height={900}><Frame hash="#app/peer/list" /></DCArtboard>
+        <DCArtboard id="pe-list-m" label="Requests · mobile · 390×900" width={390} height={900}><Frame hash="#app/peer/list" /></DCArtboard>
+        <DCArtboard id="pe-form-m" label="Feedback form · in progress + autosave · mobile · 390×1000" width={390} height={1000}><Frame hash="#app/peer/form" /></DCArtboard>
+        <DCArtboard id="pe-form-d" label="Feedback form · desktop · 1040×1000" width={1040} height={1000}><Frame hash="#app/peer/form" /></DCArtboard>
+        <DCArtboard id="pe-submitted" label="Submitted · confirmation (more to do) · 520×760" width={520} height={760}><Frame hash="#app/peer/submitted" /></DCArtboard>
+        <DCArtboard id="pe-closed" label="Closed · window passed · 520×620" width={520} height={620}><Frame hash="#app/peer/closed" /></DCArtboard>
+        <DCArtboard id="pe-decline" label="Decline · not the right reviewer · 560×760" width={560} height={760}><Frame hash="#app/peer/decline" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="approver" title="Approver track — review, rate & lock" subtitle="Desktop-first dense workspace; reflows to a single column. Approve peer nominations, then: queue (normal vs flagged) → workspace (edit narrative freely + set the rating yourself; no justification step) → finalize → awaiting acknowledgement / locked. Walkable via 'Approvals'.">
+        <DCArtboard id="ap-noms" label="Peer nominations · to approve · 1040×720" width={1040} height={720}><Frame hash="#app/approvals/nominations" /></DCArtboard>
+        <DCArtboard id="ap-nom-one" label="Nominations · one report (approve / request changes) · 760×900" width={760} height={900}><Frame hash="#app/approvals/nomination" /></DCArtboard>
+        <DCArtboard id="ap-queue-d" label="Review queue · flagged surfaced first · desktop · 1240×900" width={1240} height={900}><Frame hash="#app/approvals/queue" /></DCArtboard>
+        <DCArtboard id="ap-queue-m" label="Queue · mobile reflow · 390×880" width={390} height={880}><Frame hash="#app/approvals/queue" /></DCArtboard>
+        <DCArtboard id="ap-work-d" label="Workspace · narrative draft + set-rating rail · desktop · 1240×1000" width={1240} height={1000}><Frame hash="#app/approvals/workspace" /></DCArtboard>
+        <DCArtboard id="ap-work-m" label="Workspace · mobile reflow · 390×1180" width={390} height={1180}><Frame hash="#app/approvals/workspace" /></DCArtboard>
+        <DCArtboard id="ap-locked" label="Finalized · awaiting acknowledgement / read-only · 1000×940" width={1000} height={940}><Frame hash="#app/approvals/locked" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="admin" title="Administrator track — People Ops" subtitle="Desktop-first console; reflows to single column. Cycle setup → roster CSV import (success + errors) → monitoring dashboard. Settings & cycle management: role labels · company defaults · mid-cycle actions (reassign approver, extend deadline, withdraw). Walkable via Cycle / Roster / Settings.">
+        <DCArtboard id="ad-monitor" label="Cycle monitoring · aggregate dashboard · desktop · 1240×1080" width={1240} height={1080}><Frame hash="#app/cycles/monitor" /></DCArtboard>
+        <DCArtboard id="ad-setup" label="Cycle setup · configure form · 1040×900" width={1040} height={900}><Frame hash="#app/cycles/setup" /></DCArtboard>
+        <DCArtboard id="ad-roster-idle" label="Roster · CSV upload start · 1040×640" width={1040} height={640}><Frame hash="#app/roster/idle" /></DCArtboard>
+        <DCArtboard id="ad-roster-ok" label="Roster · imported (N participants) · 1040×860" width={1040} height={860}><Frame hash="#app/roster/success" /></DCArtboard>
+        <DCArtboard id="ad-roster-err" label="Roster · validation errors (per-row report) · 1040×880" width={1040} height={880}><Frame hash="#app/roster/error" /></DCArtboard>
+        <DCArtboard id="ad-labels" label="Settings · role labels · 1040×860" width={1040} height={860}><Frame hash="#app/settings/labels" /></DCArtboard>
+        <DCArtboard id="ad-defaults" label="Settings · company defaults · 1040×800" width={1040} height={800}><Frame hash="#app/settings/defaults" /></DCArtboard>
+        <DCArtboard id="ad-actions" label="Settings · mid-cycle actions · 1040×740" width={1040} height={740}><Frame hash="#app/settings/actions" /></DCArtboard>
+        <DCArtboard id="ad-monitor-m" label="Monitoring · mobile reflow · 390×1080" width={390} height={1080}><Frame hash="#app/cycles/monitor" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="auth" title="Auth surface — every state" subtitle="Login (with inactive SSO slot), the three activation-link landings, and set / reset / forgot password. Mobile-first, scales to a split-panel on desktop.">
+        <DCArtboard id="auth-login-d" label="Login · desktop split · 1000×680" width={1000} height={680}><Frame hash="#auth/login" /></DCArtboard>
+        <DCArtboard id="auth-login-m" label="Login · mobile · 390×720" width={390} height={720}><Frame hash="#auth/login" /></DCArtboard>
+        <DCArtboard id="auth-activate" label="Activation · valid (set password) · 390×720" width={390} height={720}><Frame hash="#auth/activate-valid" /></DCArtboard>
+        <DCArtboard id="auth-expired" label="Activation · expired link · 390×640" width={390} height={640}><Frame hash="#auth/activate-expired" /></DCArtboard>
+        <DCArtboard id="auth-used" label="Activation · already used · 390×640" width={390} height={640}><Frame hash="#auth/activate-used" /></DCArtboard>
+        <DCArtboard id="auth-set" label="Set / reset password · 390×720" width={390} height={720}><Frame hash="#auth/reset" /></DCArtboard>
+        <DCArtboard id="auth-forgot" label="Forgot password · 390×640" width={390} height={640}><Frame hash="#auth/forgot" /></DCArtboard>
+        <DCArtboard id="auth-sent" label="Reset link sent · 390×640" width={390} height={640}><Frame hash="#auth/forgot-sent" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="components" title="Component & pattern sheet" subtitle="The shared vocabulary every later screen reuses, plus the reuse-vs-extension inventory.">
+        <DCArtboard id="sheet" label="Component sheet · 1120×1400" width={1120} height={1400}><Sheet /></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<CanvasApp />);
+</script>
+</body>
+</html>

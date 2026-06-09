@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Defs_PROC_01_AUTH" targetNamespace="http://transforma/bpmn">
+  <bpmn:process id="PROC_01_AUTH" name="PROC-01 — Authentication and onboarding" isExecutable="false">
+    <bpmn:startEvent id="A_Start" name="Activation link clicked">
+      <bpmn:outgoing>a1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="A_Validate" name="Validate and atomically consume single-use token">
+      <bpmn:incoming>a1</bpmn:incoming>
+      <bpmn:outgoing>a2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="A_Gw" name="Token valid?">
+      <bpmn:incoming>a2</bpmn:incoming>
+      <bpmn:outgoing>a3</bpmn:outgoing>
+      <bpmn:outgoing>a4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="A_ErrToken" name="ERR_TOKEN_INVALID (expired / used / missing) — fail closed">
+      <bpmn:incoming>a4</bpmn:incoming>
+      <bpmn:errorEventDefinition id="A_ErrTokenDef" />
+    </bpmn:endEvent>
+    <bpmn:task id="A_Provision" name="Provision account and link to roster member">
+      <bpmn:incoming>a3</bpmn:incoming>
+      <bpmn:outgoing>a5</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="A_Ingest" name="Ingest roster population (idempotent)">
+      <bpmn:incoming>a5</bpmn:incoming>
+      <bpmn:outgoing>a6</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="A_End" name="Onboarded; roster population ready">
+      <bpmn:incoming>a6</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="a1" sourceRef="A_Start" targetRef="A_Validate" />
+    <bpmn:sequenceFlow id="a2" sourceRef="A_Validate" targetRef="A_Gw" />
+    <bpmn:sequenceFlow id="a3" name="valid" sourceRef="A_Gw" targetRef="A_Provision" />
+    <bpmn:sequenceFlow id="a4" name="invalid" sourceRef="A_Gw" targetRef="A_ErrToken" />
+    <bpmn:sequenceFlow id="a5" sourceRef="A_Provision" targetRef="A_Ingest" />
+    <bpmn:sequenceFlow id="a6" sourceRef="A_Ingest" targetRef="A_End" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_PROC_01_AUTH">
+    <bpmndi:BPMNPlane id="BPMNPlane_PROC_01_AUTH" bpmnElement="PROC_01_AUTH">
+      <bpmndi:BPMNShape id="A_Start_di" bpmnElement="A_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A_Validate_di" bpmnElement="A_Validate">
+        <dc:Bounds x="175" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A_Gw_di" bpmnElement="A_Gw" isMarkerVisible="true">
+        <dc:Bounds x="350" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A_Provision_di" bpmnElement="A_Provision">
+        <dc:Bounds x="475" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A_Ingest_di" bpmnElement="A_Ingest">
+        <dc:Bounds x="625" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A_End_di" bpmnElement="A_End">
+        <dc:Bounds x="807" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A_ErrToken_di" bpmnElement="A_ErrToken">
+        <dc:Bounds x="507" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="a1_di" bpmnElement="a1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="175" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="a2_di" bpmnElement="a2">
+        <di:waypoint x="275" y="70" />
+        <di:waypoint x="350" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="a3_di" bpmnElement="a3">
+        <di:waypoint x="400" y="70" />
+        <di:waypoint x="475" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="a4_di" bpmnElement="a4">
+        <di:waypoint x="375" y="95" />
+        <di:waypoint x="375" y="210" />
+        <di:waypoint x="507" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="a5_di" bpmnElement="a5">
+        <di:waypoint x="575" y="70" />
+        <di:waypoint x="625" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="a6_di" bpmnElement="a6">
+        <di:waypoint x="725" y="70" />
+        <di:waypoint x="807" y="70" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Defs_PROC_06_ADMIN_ACTIONS" targetNamespace="http://transforma/bpmn">
+  <bpmn:process id="PROC_06_ADMIN_ACTIONS" name="PROC-06 — Mid-cycle admin actions (settings / edge cases)" isExecutable="false">
+    <bpmn:startEvent id="D_Start" name="Admin initiates a mid-cycle action">
+      <bpmn:outgoing>d1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:exclusiveGateway id="D_Gw" name="Which action?">
+      <bpmn:incoming>d1</bpmn:incoming>
+      <bpmn:outgoing>d2</bpmn:outgoing>
+      <bpmn:outgoing>d3</bpmn:outgoing>
+      <bpmn:outgoing>d4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="D_Reassign" name="Reassign approver (must re-pass SoD: approver != subject)">
+      <bpmn:incoming>d2</bpmn:incoming>
+      <bpmn:outgoing>d5</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="D_Extend" name="Extend a specific subject&#39;s deadline (feedback or acknowledgement)">
+      <bpmn:incoming>d3</bpmn:incoming>
+      <bpmn:outgoing>d6</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="D_Withdraw" name="Withdraw a departed subject (archive feedback; remove from active counts)">
+      <bpmn:incoming>d4</bpmn:incoming>
+      <bpmn:outgoing>d7</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="D_Merge">
+      <bpmn:incoming>d5</bpmn:incoming>
+      <bpmn:incoming>d6</bpmn:incoming>
+      <bpmn:incoming>d7</bpmn:incoming>
+      <bpmn:outgoing>d8</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="D_Audit" name="Write audit entry (actor, action, timestamp)">
+      <bpmn:incoming>d8</bpmn:incoming>
+      <bpmn:outgoing>d9</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="D_End" name="Action recorded">
+      <bpmn:incoming>d9</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="d1" sourceRef="D_Start" targetRef="D_Gw" />
+    <bpmn:sequenceFlow id="d2" name="reassign approver" sourceRef="D_Gw" targetRef="D_Reassign" />
+    <bpmn:sequenceFlow id="d3" name="extend deadline" sourceRef="D_Gw" targetRef="D_Extend" />
+    <bpmn:sequenceFlow id="d4" name="withdraw subject" sourceRef="D_Gw" targetRef="D_Withdraw" />
+    <bpmn:sequenceFlow id="d5" sourceRef="D_Reassign" targetRef="D_Merge" />
+    <bpmn:sequenceFlow id="d6" sourceRef="D_Extend" targetRef="D_Merge" />
+    <bpmn:sequenceFlow id="d7" sourceRef="D_Withdraw" targetRef="D_Merge" />
+    <bpmn:sequenceFlow id="d8" sourceRef="D_Merge" targetRef="D_Audit" />
+    <bpmn:sequenceFlow id="d9" sourceRef="D_Audit" targetRef="D_End" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_PROC_06_ADMIN_ACTIONS">
+    <bpmndi:BPMNPlane id="BPMNPlane_PROC_06_ADMIN_ACTIONS" bpmnElement="PROC_06_ADMIN_ACTIONS">
+      <bpmndi:BPMNShape id="D_Start_di" bpmnElement="D_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="D_Gw_di" bpmnElement="D_Gw" isMarkerVisible="true">
+        <dc:Bounds x="200" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="D_Reassign_di" bpmnElement="D_Reassign">
+        <dc:Bounds x="325" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="D_Merge_di" bpmnElement="D_Merge" isMarkerVisible="true">
+        <dc:Bounds x="500" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="D_Audit_di" bpmnElement="D_Audit">
+        <dc:Bounds x="625" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="D_End_di" bpmnElement="D_End">
+        <dc:Bounds x="807" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="D_Extend_di" bpmnElement="D_Extend">
+        <dc:Bounds x="325" y="170" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="D_Withdraw_di" bpmnElement="D_Withdraw">
+        <dc:Bounds x="325" y="310" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="d1_di" bpmnElement="d1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="200" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d2_di" bpmnElement="d2">
+        <di:waypoint x="250" y="70" />
+        <di:waypoint x="325" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d3_di" bpmnElement="d3">
+        <di:waypoint x="225" y="95" />
+        <di:waypoint x="225" y="210" />
+        <di:waypoint x="325" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d4_di" bpmnElement="d4">
+        <di:waypoint x="225" y="95" />
+        <di:waypoint x="225" y="350" />
+        <di:waypoint x="325" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d5_di" bpmnElement="d5">
+        <di:waypoint x="425" y="70" />
+        <di:waypoint x="500" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d8_di" bpmnElement="d8">
+        <di:waypoint x="550" y="70" />
+        <di:waypoint x="625" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d9_di" bpmnElement="d9">
+        <di:waypoint x="725" y="70" />
+        <di:waypoint x="807" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d6_di" bpmnElement="d6">
+        <di:waypoint x="425" y="210" />
+        <di:waypoint x="525" y="210" />
+        <di:waypoint x="525" y="95" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="d7_di" bpmnElement="d7">
+        <di:waypoint x="425" y="350" />
+        <di:waypoint x="525" y="350" />
+        <di:waypoint x="525" y="95" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

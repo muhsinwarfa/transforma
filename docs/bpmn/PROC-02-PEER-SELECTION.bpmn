@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Defs_PROC_02_PEER_SELECTION" targetNamespace="http://transforma/bpmn">
+  <bpmn:process id="PROC_02_PEER_SELECTION" name="PROC-02 — Peer selection (nominate then approve)" isExecutable="false">
+    <bpmn:startEvent id="S_Start" name="Peer selection opens">
+      <bpmn:outgoing>s1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="S_Nominate" name="Employee nominates peers (up to configured max)">
+      <bpmn:incoming>s1</bpmn:incoming>
+      <bpmn:incoming>s7</bpmn:incoming>
+      <bpmn:outgoing>s2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="S_Review" name="Manager reviews nominations">
+      <bpmn:incoming>s2</bpmn:incoming>
+      <bpmn:outgoing>s3</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="S_Gw" name="Manager approves?">
+      <bpmn:incoming>s3</bpmn:incoming>
+      <bpmn:outgoing>s4</bpmn:outgoing>
+      <bpmn:outgoing>s5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="S_Adjust" name="Return to employee to adjust nominations">
+      <bpmn:incoming>s5</bpmn:incoming>
+      <bpmn:outgoing>s7</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="S_Record" name="Record approved peers as the subject roster">
+      <bpmn:incoming>s4</bpmn:incoming>
+      <bpmn:outgoing>s6</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="S_End" name="Peers finalized">
+      <bpmn:incoming>s6</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="s1" sourceRef="S_Start" targetRef="S_Nominate" />
+    <bpmn:sequenceFlow id="s2" sourceRef="S_Nominate" targetRef="S_Review" />
+    <bpmn:sequenceFlow id="s3" sourceRef="S_Review" targetRef="S_Gw" />
+    <bpmn:sequenceFlow id="s4" name="approved" sourceRef="S_Gw" targetRef="S_Record" />
+    <bpmn:sequenceFlow id="s5" name="changes requested" sourceRef="S_Gw" targetRef="S_Adjust" />
+    <bpmn:sequenceFlow id="s7" sourceRef="S_Adjust" targetRef="S_Nominate" />
+    <bpmn:sequenceFlow id="s6" sourceRef="S_Record" targetRef="S_End" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_PROC_02_PEER_SELECTION">
+    <bpmndi:BPMNPlane id="BPMNPlane_PROC_02_PEER_SELECTION" bpmnElement="PROC_02_PEER_SELECTION">
+      <bpmndi:BPMNShape id="S_Start_di" bpmnElement="S_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Nominate_di" bpmnElement="S_Nominate">
+        <dc:Bounds x="175" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Review_di" bpmnElement="S_Review">
+        <dc:Bounds x="325" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Gw_di" bpmnElement="S_Gw" isMarkerVisible="true">
+        <dc:Bounds x="500" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Record_di" bpmnElement="S_Record">
+        <dc:Bounds x="625" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_End_di" bpmnElement="S_End">
+        <dc:Bounds x="807" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Adjust_di" bpmnElement="S_Adjust">
+        <dc:Bounds x="625" y="170" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="s1_di" bpmnElement="s1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="175" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="s2_di" bpmnElement="s2">
+        <di:waypoint x="275" y="70" />
+        <di:waypoint x="325" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="s3_di" bpmnElement="s3">
+        <di:waypoint x="425" y="70" />
+        <di:waypoint x="500" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="s4_di" bpmnElement="s4">
+        <di:waypoint x="550" y="70" />
+        <di:waypoint x="625" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="s5_di" bpmnElement="s5">
+        <di:waypoint x="525" y="95" />
+        <di:waypoint x="525" y="210" />
+        <di:waypoint x="625" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="s6_di" bpmnElement="s6">
+        <di:waypoint x="725" y="70" />
+        <di:waypoint x="807" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="s7_di" bpmnElement="s7">
+        <di:waypoint x="675" y="250" />
+        <di:waypoint x="675" y="280" />
+        <di:waypoint x="225" y="280" />
+        <di:waypoint x="225" y="110" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

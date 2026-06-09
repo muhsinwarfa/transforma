@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Defs_PROC_MAIN" targetNamespace="http://transforma/bpmn">
+  <bpmn:process id="PROC_MAIN" name="PROC-MAIN — Review orchestration (per subject)" isExecutable="false">
+    <bpmn:startEvent id="M_Start" name="Review created (status: draft)">
+      <bpmn:outgoing>m1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:subProcess id="M_Pipeline" name="Run review pipeline">
+      <bpmn:incoming>m1</bpmn:incoming>
+      <bpmn:outgoing>m2</bpmn:outgoing>
+      <bpmn:startEvent id="P_Start" name="Begin">
+        <bpmn:outgoing>p1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:callActivity id="P_Auth" name="Authentication and onboarding (PROC-01)">
+        <bpmn:incoming>p1</bpmn:incoming>
+        <bpmn:outgoing>p2</bpmn:outgoing>
+      </bpmn:callActivity>
+      <bpmn:callActivity id="P_Peer" name="Peer selection (PROC-02)">
+        <bpmn:incoming>p2</bpmn:incoming>
+        <bpmn:outgoing>p3</bpmn:outgoing>
+      </bpmn:callActivity>
+      <bpmn:callActivity id="P_Feedback" name="Feedback collection (PROC-03)">
+        <bpmn:incoming>p3</bpmn:incoming>
+        <bpmn:outgoing>p4</bpmn:outgoing>
+      </bpmn:callActivity>
+      <bpmn:callActivity id="P_Synth" name="Narrative synthesis (PROC-04)">
+        <bpmn:incoming>p4</bpmn:incoming>
+        <bpmn:outgoing>p5</bpmn:outgoing>
+      </bpmn:callActivity>
+      <bpmn:callActivity id="P_Final" name="Finalization (PROC-05)">
+        <bpmn:incoming>p5</bpmn:incoming>
+        <bpmn:outgoing>p6</bpmn:outgoing>
+      </bpmn:callActivity>
+      <bpmn:endEvent id="P_End" name="Pipeline complete">
+        <bpmn:incoming>p6</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="p1" sourceRef="P_Start" targetRef="P_Auth" />
+      <bpmn:sequenceFlow id="p2" sourceRef="P_Auth" targetRef="P_Peer" />
+      <bpmn:sequenceFlow id="p3" sourceRef="P_Peer" targetRef="P_Feedback" />
+      <bpmn:sequenceFlow id="p4" sourceRef="P_Feedback" targetRef="P_Synth" />
+      <bpmn:sequenceFlow id="p5" sourceRef="P_Synth" targetRef="P_Final" />
+      <bpmn:sequenceFlow id="p6" sourceRef="P_Final" targetRef="P_End" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="M_Err" name="Integration failure" attachedToRef="M_Pipeline">
+      <bpmn:outgoing>m3</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="M_ErrDef" />
+    </bpmn:boundaryEvent>
+    <bpmn:endEvent id="M_Locked" name="Review locked (terminal)">
+      <bpmn:incoming>m2</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="M_Aborted" name="Review aborted (never completes as locked)">
+      <bpmn:incoming>m3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="m1" sourceRef="M_Start" targetRef="M_Pipeline" />
+    <bpmn:sequenceFlow id="m2" sourceRef="M_Pipeline" targetRef="M_Locked" />
+    <bpmn:sequenceFlow id="m3" sourceRef="M_Err" targetRef="M_Aborted" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_PROC_MAIN">
+    <bpmndi:BPMNPlane id="BPMNPlane_PROC_MAIN" bpmnElement="PROC_MAIN">
+      <bpmndi:BPMNShape id="M_Start_di" bpmnElement="M_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="M_Pipeline_di" bpmnElement="M_Pipeline">
+        <dc:Bounds x="175" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="M_Err_di" bpmnElement="M_Err">
+        <dc:Bounds x="207" y="92" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="M_Locked_di" bpmnElement="M_Locked">
+        <dc:Bounds x="357" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="M_Aborted_di" bpmnElement="M_Aborted">
+        <dc:Bounds x="357" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="m1_di" bpmnElement="m1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="175" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="m2_di" bpmnElement="m2">
+        <di:waypoint x="275" y="70" />
+        <di:waypoint x="357" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="m3_di" bpmnElement="m3">
+        <di:waypoint x="225" y="128" />
+        <di:waypoint x="225" y="210" />
+        <di:waypoint x="357" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="P_Start_di" bpmnElement="P_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Auth_di" bpmnElement="P_Auth">
+        <dc:Bounds x="175" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Peer_di" bpmnElement="P_Peer">
+        <dc:Bounds x="325" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Feedback_di" bpmnElement="P_Feedback">
+        <dc:Bounds x="475" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Synth_di" bpmnElement="P_Synth">
+        <dc:Bounds x="625" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Final_di" bpmnElement="P_Final">
+        <dc:Bounds x="775" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_End_di" bpmnElement="P_End">
+        <dc:Bounds x="957" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="p1_di" bpmnElement="p1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="175" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="p2_di" bpmnElement="p2">
+        <di:waypoint x="275" y="70" />
+        <di:waypoint x="325" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="p3_di" bpmnElement="p3">
+        <di:waypoint x="425" y="70" />
+        <di:waypoint x="475" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="p4_di" bpmnElement="p4">
+        <di:waypoint x="575" y="70" />
+        <di:waypoint x="625" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="p5_di" bpmnElement="p5">
+        <di:waypoint x="725" y="70" />
+        <di:waypoint x="775" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="p6_di" bpmnElement="p6">
+        <di:waypoint x="875" y="70" />
+        <di:waypoint x="957" y="70" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

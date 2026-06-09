@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Defs_PROC_05_FINALIZATION" targetNamespace="http://transforma/bpmn">
+  <bpmn:process id="PROC_05_FINALIZATION" name="PROC-05 — Finalization (rating by human; reveal then acknowledge then lock)" isExecutable="false">
+    <bpmn:startEvent id="L_Start" name="Draft narrative ready">
+      <bpmn:outgoing>l1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="L_Resolve" name="Resolve eligible approver (SoD: approver != subject)">
+      <bpmn:incoming>l1</bpmn:incoming>
+      <bpmn:outgoing>l2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="L_Gw" name="Eligible approver available?">
+      <bpmn:incoming>l2</bpmn:incoming>
+      <bpmn:outgoing>l3</bpmn:outgoing>
+      <bpmn:outgoing>l4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="L_Blocked" name="blocked_sod (no eligible approver; surfaced to admin)">
+      <bpmn:incoming>l4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:task id="L_Edit" name="Manager reviews and edits narrative; sets the rating (no justification gate)">
+      <bpmn:incoming>l3</bpmn:incoming>
+      <bpmn:outgoing>l5</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="L_Finalize" name="Manager finalizes">
+      <bpmn:incoming>l5</bpmn:incoming>
+      <bpmn:outgoing>l6</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="L_Reveal" name="Reveal finished review to employee (awaiting-acknowledgement; pre-lock)">
+      <bpmn:incoming>l6</bpmn:incoming>
+      <bpmn:outgoing>l7</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="L_Resp" name="Employee response?">
+      <bpmn:incoming>l7</bpmn:incoming>
+      <bpmn:outgoing>l8</bpmn:outgoing>
+      <bpmn:outgoing>l9</bpmn:outgoing>
+      <bpmn:outgoing>l10</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="L_Ack" name="Employee acknowledges">
+      <bpmn:incoming>l8</bpmn:incoming>
+      <bpmn:outgoing>l11</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="L_Written" name="Employee attaches written response (stored beside review; never edits it)">
+      <bpmn:incoming>l9</bpmn:incoming>
+      <bpmn:outgoing>l12</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="L_Timeout" name="Acknowledgement window closes (no response; documented)">
+      <bpmn:incoming>l10</bpmn:incoming>
+      <bpmn:outgoing>l13</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="L_Merge">
+      <bpmn:incoming>l11</bpmn:incoming>
+      <bpmn:incoming>l12</bpmn:incoming>
+      <bpmn:incoming>l13</bpmn:incoming>
+      <bpmn:outgoing>l14</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="L_Lock" name="Commit permanent lock (insert-only snapshot + tamper-evident audit)">
+      <bpmn:incoming>l14</bpmn:incoming>
+      <bpmn:outgoing>l15</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="L_Retention" name="Schedule retention (separate fixed-duration policy)">
+      <bpmn:incoming>l15</bpmn:incoming>
+      <bpmn:outgoing>l16</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="L_End" name="Review locked (terminal; no post-lock correction)">
+      <bpmn:incoming>l16</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="l1" sourceRef="L_Start" targetRef="L_Resolve" />
+    <bpmn:sequenceFlow id="l2" sourceRef="L_Resolve" targetRef="L_Gw" />
+    <bpmn:sequenceFlow id="l3" name="eligible" sourceRef="L_Gw" targetRef="L_Edit" />
+    <bpmn:sequenceFlow id="l4" name="none" sourceRef="L_Gw" targetRef="L_Blocked" />
+    <bpmn:sequenceFlow id="l5" sourceRef="L_Edit" targetRef="L_Finalize" />
+    <bpmn:sequenceFlow id="l6" sourceRef="L_Finalize" targetRef="L_Reveal" />
+    <bpmn:sequenceFlow id="l7" sourceRef="L_Reveal" targetRef="L_Resp" />
+    <bpmn:sequenceFlow id="l8" name="acknowledges" sourceRef="L_Resp" targetRef="L_Ack" />
+    <bpmn:sequenceFlow id="l9" name="written response" sourceRef="L_Resp" targetRef="L_Written" />
+    <bpmn:sequenceFlow id="l10" name="no response" sourceRef="L_Resp" targetRef="L_Timeout" />
+    <bpmn:sequenceFlow id="l11" sourceRef="L_Ack" targetRef="L_Merge" />
+    <bpmn:sequenceFlow id="l12" sourceRef="L_Written" targetRef="L_Merge" />
+    <bpmn:sequenceFlow id="l13" sourceRef="L_Timeout" targetRef="L_Merge" />
+    <bpmn:sequenceFlow id="l14" sourceRef="L_Merge" targetRef="L_Lock" />
+    <bpmn:sequenceFlow id="l15" sourceRef="L_Lock" targetRef="L_Retention" />
+    <bpmn:sequenceFlow id="l16" sourceRef="L_Retention" targetRef="L_End" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_PROC_05_FINALIZATION">
+    <bpmndi:BPMNPlane id="BPMNPlane_PROC_05_FINALIZATION" bpmnElement="PROC_05_FINALIZATION">
+      <bpmndi:BPMNShape id="L_Start_di" bpmnElement="L_Start">
+        <dc:Bounds x="57" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Resolve_di" bpmnElement="L_Resolve">
+        <dc:Bounds x="175" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Gw_di" bpmnElement="L_Gw" isMarkerVisible="true">
+        <dc:Bounds x="350" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Edit_di" bpmnElement="L_Edit">
+        <dc:Bounds x="475" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Finalize_di" bpmnElement="L_Finalize">
+        <dc:Bounds x="625" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Reveal_di" bpmnElement="L_Reveal">
+        <dc:Bounds x="775" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Resp_di" bpmnElement="L_Resp" isMarkerVisible="true">
+        <dc:Bounds x="950" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Ack_di" bpmnElement="L_Ack">
+        <dc:Bounds x="1075" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Merge_di" bpmnElement="L_Merge" isMarkerVisible="true">
+        <dc:Bounds x="1250" y="45" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Lock_di" bpmnElement="L_Lock">
+        <dc:Bounds x="1375" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Retention_di" bpmnElement="L_Retention">
+        <dc:Bounds x="1525" y="30" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_End_di" bpmnElement="L_End">
+        <dc:Bounds x="1707" y="52" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Blocked_di" bpmnElement="L_Blocked">
+        <dc:Bounds x="507" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Written_di" bpmnElement="L_Written">
+        <dc:Bounds x="1075" y="170" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="L_Timeout_di" bpmnElement="L_Timeout">
+        <dc:Bounds x="1075" y="310" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="l1_di" bpmnElement="l1">
+        <di:waypoint x="93" y="70" />
+        <di:waypoint x="175" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l2_di" bpmnElement="l2">
+        <di:waypoint x="275" y="70" />
+        <di:waypoint x="350" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l3_di" bpmnElement="l3">
+        <di:waypoint x="400" y="70" />
+        <di:waypoint x="475" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l4_di" bpmnElement="l4">
+        <di:waypoint x="375" y="95" />
+        <di:waypoint x="375" y="210" />
+        <di:waypoint x="507" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l5_di" bpmnElement="l5">
+        <di:waypoint x="575" y="70" />
+        <di:waypoint x="625" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l6_di" bpmnElement="l6">
+        <di:waypoint x="725" y="70" />
+        <di:waypoint x="775" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l7_di" bpmnElement="l7">
+        <di:waypoint x="875" y="70" />
+        <di:waypoint x="950" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l8_di" bpmnElement="l8">
+        <di:waypoint x="1000" y="70" />
+        <di:waypoint x="1075" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l9_di" bpmnElement="l9">
+        <di:waypoint x="975" y="95" />
+        <di:waypoint x="975" y="210" />
+        <di:waypoint x="1075" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l10_di" bpmnElement="l10">
+        <di:waypoint x="975" y="95" />
+        <di:waypoint x="975" y="350" />
+        <di:waypoint x="1075" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l11_di" bpmnElement="l11">
+        <di:waypoint x="1175" y="70" />
+        <di:waypoint x="1250" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l14_di" bpmnElement="l14">
+        <di:waypoint x="1300" y="70" />
+        <di:waypoint x="1375" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l15_di" bpmnElement="l15">
+        <di:waypoint x="1475" y="70" />
+        <di:waypoint x="1525" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l16_di" bpmnElement="l16">
+        <di:waypoint x="1625" y="70" />
+        <di:waypoint x="1707" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l12_di" bpmnElement="l12">
+        <di:waypoint x="1175" y="210" />
+        <di:waypoint x="1275" y="210" />
+        <di:waypoint x="1275" y="95" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="l13_di" bpmnElement="l13">
+        <di:waypoint x="1175" y="350" />
+        <di:waypoint x="1275" y="350" />
+        <di:waypoint x="1275" y="95" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
