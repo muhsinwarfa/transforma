@@ -48,3 +48,27 @@ below was applied to **both** the app and the prototype.
   has no `relation` column, so the peer request/list render department only. Backlog schema gap.
 - **B3 — admin resend-invite → omitted.** The token-table write is outside the presentation
   fence; the "ask your administrator" copy is kept. Backlog.
+
+---
+
+## Pre-deploy decisions (2026-06-10, ratified by Muhsinka)
+
+- **#1 — Admin self-read EXCLUDED.** `app.admin_review_list` now filters out the caller's own
+  review (`and r.employee_id <> app.current_account_id()`): a People-Ops admin who is also a
+  Team Member reads their own review as a subject post-reveal, never via the sealed reader.
+  Additive migration `20260610002000_self_exclusions.sql` (create-or-replace; spine untouched);
+  dbspec added (admin-who-is-also-subject sees all finished reviews except their own).
+  **Flagged residual:** the by-id `app.admin_read_review(own_id)` is *not* self-blocked — it stays
+  readable + audited; only the LIST surface hides own. A matching one-line guard closes it on request.
+- **#2 — Grant governance: AS-IS for pilot.** Any People-Ops admin can flip the company toggle and
+  grant/revoke review-content access. **Backlog:** restrict grant authority to a designated owner
+  (and/or block self-grant).
+- **#3 — Manager-as-peer EXCLUDED.** A subject's assigned approver never appears in their peer
+  candidate list. **Placement note (flagged):** implemented as a one-line filter in the *owner-run*
+  `nomination_candidates` VIEW (`and rm.account_id <> r.approver_id`), **not** the app, because the
+  subject cannot read `reviews.approver_id` under RLS (the view already joins the subject's review).
+  Equally narrow, and server-enforced rather than UI-only. The prototype's candidate population is a
+  peer pool that already excludes the manager — no comp change needed.
+- **Route guard (UI courtesy on top of the server locks).** Wrong-role users are now redirected at
+  the `(app)` segment level (per-role layouts → `/home`); signed-out → `/login`. Root `/` redirects
+  to `/login` (or `/home` when authenticated), replacing the old Foundation scaffolding page.

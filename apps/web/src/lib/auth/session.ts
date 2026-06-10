@@ -1,4 +1,5 @@
 import "server-only";
+import { redirect } from "next/navigation";
 import type { StructuralRole } from "@transforma/db";
 import { TransformaError } from "@transforma/review-core";
 import { createRlsClient } from "@/lib/supabase/server";
@@ -55,5 +56,18 @@ export async function requireRole(role: StructuralRole): Promise<Session> {
   if (!session.roles.includes(role)) {
     throw new TransformaError("ERR_FORBIDDEN", `Requires the ${role} role`, 403);
   }
+  return session;
+}
+
+/**
+ * Route-level UI guard (courtesy on top of the server locks, not a replacement):
+ * gracefully bounce a wrong-role user with a server redirect (no content flash)
+ * instead of rendering an empty/aggregate page. Signed-out → /login; wrong role →
+ * /home. The data layer (RLS + audited functions) remains the actual lock.
+ */
+export async function guardRole(role: StructuralRole): Promise<Session> {
+  const session = await loadSession();
+  if (!session) redirect("/login");
+  if (!session.roles.includes(role)) redirect("/home");
   return session;
 }

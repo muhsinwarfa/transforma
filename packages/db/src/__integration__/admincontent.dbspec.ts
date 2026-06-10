@@ -42,6 +42,7 @@ const BADM = "cb000000-0000-0000-0000-00000000ad01";
 const U_BADM = "cb000000-0000-0000-0000-00000000ad11";
 // review + dependent rows in CA.
 const REV = "ca000000-0000-0000-0000-0000000005e7";
+const REV2 = "ca000000-0000-0000-0000-0000000005e8"; // ADMG's OWN review (admin who is also a subject)
 const ROST = "ca000000-0000-0000-0000-00000000a071";
 
 let epg: EmbeddedPostgres;
@@ -93,6 +94,12 @@ insert into self_reviews (id, company_id, cycle_id, employee_id, review_id, sect
           '{"highlights":"Shipped the Q1 launch."}'::jsonb,'submitted')
   on conflict do nothing;
 
+-- decision #1: a finished review whose SUBJECT is the granted admin (ADMG). The
+-- sealed list must HIDE it from ADMG (they read it as a subject post-reveal).
+insert into reviews (id, company_id, cycle_id, employee_id, status, rating, flagged_internal)
+  values ('${REV2}','${CA}','${CY}','${ADMG}','locked','Exceeds expectations', false)
+  on conflict (id) do nothing;
+
 -- a CONFIDENTIAL raw peer row (+ its roster) — must NEVER surface to the admin.
 insert into rosters (id, company_id, cycle_id, employee_id)
   values ('${ROST}','${CA}','${CY}','${SUBJ}') on conflict (id) do nothing;
@@ -138,6 +145,8 @@ async function asAuthCommit<T>(sub: string, fn: () => Promise<T>): Promise<T> {
 
 const readReview = (id: string) =>
   client.query<{ r: Record<string, unknown> | null }>(`select app.admin_read_review($1) as r`, [id]).then((x) => x.rows[0]?.r ?? null);
+const listReviewIds = (sub: string) =>
+  asAuth(sub, () => client.query<{ review_id: string }>(`select review_id from app.admin_review_list()`).then((x) => x.rows.map((r) => r.review_id)));
 const viewCount = async (): Promise<number> =>
   Number(
     (
@@ -218,6 +227,12 @@ describe("gated admin content read — the authorized path (1900)", () => {
     const rows = await asAuth(U_ADMG, async () => (await client.query(`select * from app.admin_review_list()`)).rows);
     expect(rows.map((x) => x.review_id)).toContain(REV);
     expect(rows.find((x) => x.review_id === REV)?.subject_name).toBe("CA Subject");
+  });
+
+  it("an admin who is ALSO a subject sees every finished review EXCEPT their own (decision #1)", async () => {
+    const ids = await listReviewIds(U_ADMG);
+    expect(ids).toContain(REV); // the CA Subject's review — listed
+    expect(ids).not.toContain(REV2); // ADMG's OWN review — excluded from the sealed list
   });
 });
 
