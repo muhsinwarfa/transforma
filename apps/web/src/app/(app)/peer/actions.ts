@@ -5,11 +5,17 @@ import { requireSession } from "@/lib/auth/session";
 import { REQUIRED_PEER_PROMPT_IDS, sanitizeAnswers, type PeerAnswers } from "@/lib/peer/feedback";
 import { createRlsClient } from "@/lib/supabase/server";
 
-async function audit(companyId: string, action: string, actor: string, reviewId: string) {
+async function audit(
+  companyId: string,
+  action: string,
+  actor: string,
+  reviewId: string,
+  target: object = {},
+) {
   try {
     await createServiceRoleClient()
       .schema("app")
-      .rpc("append_audit", { p_company: companyId, p_action: action, p_actor: actor, p_review: reviewId, p_target: {} });
+      .rpc("append_audit", { p_company: companyId, p_action: action, p_actor: actor, p_review: reviewId, p_target: target });
   } catch {
     /* best-effort */
   }
@@ -50,7 +56,7 @@ export async function submitPeerFeedback(reviewId: string, answers: PeerAnswers)
   revalidatePath(`/peer/${reviewId}`);
 }
 
-export async function declinePeerFeedback(reviewId: string) {
+export async function declinePeerFeedback(reviewId: string, reason?: string) {
   const session = await requireSession();
   const supabase = await createRlsClient();
   const { error } = await supabase
@@ -58,7 +64,16 @@ export async function declinePeerFeedback(reviewId: string) {
     .update({ state: "declined", declined_at: new Date().toISOString() })
     .eq("review_id", reviewId);
   if (error) throw new Error(error.message);
-  await audit(session.companyId, "peer_feedback_declined", session.accountId, reviewId);
+  // The schema has no decline-reason column; rather than silently drop the chosen
+  // reason, it rides into the append_audit target jsonb (no schema change).
+  const trimmed = reason?.trim();
+  await audit(
+    session.companyId,
+    "peer_feedback_declined",
+    session.accountId,
+    reviewId,
+    trimmed ? { reason: trimmed } : {},
+  );
   revalidatePath("/peer");
   revalidatePath(`/peer/${reviewId}`);
 }

@@ -16,6 +16,8 @@ export interface RevealedReview {
   status: string;
   rating: string | null;
   narrative: NarrativeSections | null;
+  revealedAt: string | null;
+  ackWindowEndsAt: string | null;
   lockedAt: string | null;
 }
 
@@ -55,7 +57,7 @@ export async function getRevealedReview(): Promise<RevealedReview | null> {
   const supabase = await createRlsClient();
   const { data } = await supabase
     .from("revealed_review")
-    .select("review_id, status, rating, narrative, locked_at")
+    .select("review_id, status, rating, narrative, revealed_at, ack_window_ends_at, locked_at")
     .maybeSingle();
   if (!data) return null;
   return {
@@ -63,6 +65,8 @@ export async function getRevealedReview(): Promise<RevealedReview | null> {
     status: data.status as string,
     rating: data.rating as string | null,
     narrative: (data.narrative as NarrativeSections | null) ?? null,
+    revealedAt: data.revealed_at as string | null,
+    ackWindowEndsAt: data.ack_window_ends_at as string | null,
     lockedAt: data.locked_at as string | null,
   };
 }

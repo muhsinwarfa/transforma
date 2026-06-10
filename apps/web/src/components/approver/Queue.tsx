@@ -1,8 +1,21 @@
 import Link from "next/link";
-import { Avatar, StatusBadge } from "@/components/atoms";
-import { IcoApprovals, IcoArrowRight, IcoClock, IcoDoc, IcoFlag, IcoLock, IcoShield } from "@/components/atoms/icons";
-import { RoleLabel } from "@/lib/labels/RoleLabelProvider";
-import type { QueueItem } from "@/lib/approver/data";
+import { Avatar, RoleLabel, StatusBadge } from "@/components/atoms";
+import {
+  IcoApprovals,
+  IcoArrowRight,
+  IcoCheckCircle,
+  IcoClock,
+  IcoDoc,
+  IcoFlag,
+  IcoLock,
+  IcoShield,
+} from "@/components/atoms/icons";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
+import { shortDate, type QueueItem } from "@/lib/approver/data";
+
+// The underlying configurable token behind the tenant role word (revealed by the
+// "Show role tokens" toggle; hidden via the .tok / body.show-tokens CSS otherwise).
+const SUBJECT_TOKEN = "subject_label";
 
 /**
  * Describe the inputs WITHOUT quantifying peer feedback below the floor — the
@@ -17,43 +30,78 @@ function inputsText(item: QueueItem): string {
   return `Self-review · ${item.peerCount} peer ${item.peerCount === 1 ? "response" : "responses"}`;
 }
 
-function Row({ item }: { item: QueueItem }) {
+// A review still on the approver's desk (ready or flagged).
+function PendingRow({ item, labels }: { item: QueueItem; labels: RoleLabels }) {
   const isFlagged = item.status === "flagged" || item.flaggedInternal;
-  const isLocked = item.status === "locked";
   return (
-    <Link
-      href={`/approvals/${item.reviewId}`}
-      className={`aq-row ${isFlagged ? "flagged" : ""} ${isLocked ? "locked-row" : ""}`.trim()}
-    >
+    <Link href={`/approvals/${item.reviewId}`} className={`aq-row ${isFlagged ? "flagged" : ""}`.trim()}>
       <Avatar name={item.subjectName} cls="lg" />
       <div className="aq-row-main">
         <div className="aq-row-top">
           <span className="aq-row-name">{item.subjectName}</span>
+          <span className="role-chip sm">
+            {labels.subject}
+            <span className="tok">{`{${SUBJECT_TOKEN}}`}</span>
+          </span>
           {isFlagged ? <StatusBadge status="flagged" sm /> : null}
-          {isLocked ? <StatusBadge status="locked" sm /> : null}
         </div>
         <div className="aq-row-meta">
           {item.department ? <span className="am">{item.department}</span> : null}
           <span className="am">
             <IcoDoc s={13} sw={1.7} /> {inputsText(item)}
           </span>
-          {isLocked ? null : (
+          {item.submittedAt ? (
             <span className="am">
-              <IcoClock s={13} sw={1.8} /> Awaiting your decision
+              <IcoClock s={13} sw={1.8} /> Submitted {shortDate(item.submittedAt)}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
       <div className="aq-row-right">
         <span className="aq-row-cta" style={isFlagged ? { color: "var(--warn-text)" } : undefined}>
-          {isLocked ? "View" : isFlagged ? "Rework & decide" : "Review"} <IcoArrowRight s={16} />
+          {isFlagged ? "Rework & decide" : "Review"} <IcoArrowRight s={16} />
         </span>
       </div>
     </Link>
   );
 }
 
-export function ApproverQueue({ items }: { items: QueueItem[] }) {
+// A finished review (locked or revealed-awaiting-ack), read-only.
+function DecidedRow({ item }: { item: QueueItem }) {
+  const isLocked = item.status === "locked";
+  return (
+    <Link href={`/approvals/${item.reviewId}`} className="aq-row locked-row">
+      <Avatar name={item.subjectName} cls="lg" />
+      <div className="aq-row-main">
+        <div className="aq-row-top">
+          <span className="aq-row-name">{item.subjectName}</span>
+          <StatusBadge status={isLocked ? "locked" : "awaiting-acknowledgement"} sm />
+        </div>
+        <div className="aq-row-meta">
+          {item.department ? <span className="am">{item.department}</span> : null}
+          <span className="am">
+            {isLocked ? (
+              <>
+                <IcoLock s={13} sw={1.8} /> Locked {shortDate(item.lockedAt)}
+              </>
+            ) : (
+              <>
+                <IcoClock s={13} sw={1.8} /> Finalized {shortDate(item.finalizedAt)}
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+      <div className="aq-row-right">
+        <span className="aq-row-cta">
+          View <IcoArrowRight s={16} />
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+export function ApproverQueue({ items, labels }: { items: QueueItem[]; labels: RoleLabels }) {
   const flagged = items.filter((q) => q.status === "flagged" || q.flaggedInternal);
   const ready = items.filter((q) => q.status === "in-review" && !q.flaggedInternal);
   const decided = items.filter((q) => q.status === "awaiting-acknowledgement" || q.status === "locked");
@@ -70,15 +118,15 @@ export function ApproverQueue({ items }: { items: QueueItem[] }) {
             <h1>Reviews to decide</h1>
           </div>
           <p className="ph-sub">
-            Reviews routed to you as <RoleLabel role="approver" />. Open one to read the draft, edit if needed, set a
-            rating, and finalize.
+            Reviews routed to you as <RoleLabel label={labels.approver} token="approver_label" />. Open one to read the
+            draft, edit if needed, and lock.
           </p>
         </div>
       </div>
 
       <div className="aq-summary">
         <div className="aq-stat">
-          <div className="aqs-num">{pending.length}</div>
+          <div className="aqs-num">{ready.length + flagged.length}</div>
           <div className="aqs-label">
             <IcoApprovals s={15} sw={1.8} /> Awaiting your decision
           </div>
@@ -90,9 +138,9 @@ export function ApproverQueue({ items }: { items: QueueItem[] }) {
           </div>
         </div>
         <div className="aq-stat">
-          <div className="aqs-num">{decided.filter((q) => q.status === "locked").length}</div>
+          <div className="aqs-num">{decided.length}</div>
           <div className="aqs-label">
-            <IcoLock s={15} sw={1.8} /> Locked this cycle
+            <IcoLock s={15} sw={1.8} /> Decided this cycle
           </div>
         </div>
       </div>
@@ -100,17 +148,17 @@ export function ApproverQueue({ items }: { items: QueueItem[] }) {
       {pending.length > 0 ? (
         <div className="aq-list card" style={{ padding: 0, overflow: "hidden" }}>
           {pending.map((q) => (
-            <Row key={q.reviewId} item={q} />
+            <PendingRow key={q.reviewId} item={q} labels={labels} />
           ))}
         </div>
       ) : (
         <div className="card pad">
           <div className="state-block">
             <span className="state-glyph">
-              <IcoApprovals s={26} />
+              <IcoCheckCircle s={26} />
             </span>
             <h3>All caught up</h3>
-            <p>No reviews are waiting on your decision right now.</p>
+            <p>All caught up. No reviews are waiting on your decision right now.</p>
           </div>
         </div>
       )}
@@ -126,7 +174,7 @@ export function ApproverQueue({ items }: { items: QueueItem[] }) {
           </div>
           <div className="aq-list card" style={{ padding: 0, overflow: "hidden" }}>
             {decided.map((q) => (
-              <Row key={q.reviewId} item={q} />
+              <DecidedRow key={q.reviewId} item={q} />
             ))}
           </div>
         </>
@@ -136,7 +184,7 @@ export function ApproverQueue({ items }: { items: QueueItem[] }) {
         <IcoShield s={15} />
         <span>
           You won&apos;t see reviews you contributed feedback to, or your own — those are routed to a different{" "}
-          <RoleLabel role="approver" /> to keep decisions independent.
+          <RoleLabel label={labels.approver} token="approver_label" /> to keep decisions independent.
         </span>
       </div>
     </div>

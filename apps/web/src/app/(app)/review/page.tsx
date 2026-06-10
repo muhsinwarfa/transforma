@@ -1,4 +1,7 @@
+import { BackToHome } from "@/components/atoms";
+import { IcoReview } from "@/components/atoms/icons";
 import { MyReviewStatus, ReviewLocked, ReviewReady } from "@/components/subject/screens";
+import { getActiveCycle } from "@/lib/admin/data";
 import { getMyResponse, getMyReviewStatus, getRevealedReview } from "@/lib/subject/data";
 import { decideSubjectView } from "@/lib/subject/view";
 
@@ -15,9 +18,16 @@ export default async function ReviewPage() {
   const status = await getMyReviewStatus();
   if (!status) {
     return (
-      <div className="tf-page subj-col">
+      <div className="tf-page subj-narrow">
         <div className="card pad">
-          <p className="t-body">You don&apos;t have an active review this cycle yet.</p>
+          <div className="state-block">
+            <span className="state-glyph">
+              <IcoReview s={26} />
+            </span>
+            <h3>No active review</h3>
+            <p>You don&apos;t have an active review this cycle yet.</p>
+            <BackToHome />
+          </div>
         </div>
       </div>
     );
@@ -27,15 +37,32 @@ export default async function ReviewPage() {
     return <MyReviewStatus />;
   }
 
-  const review = await getRevealedReview();
+  const [review, cycle] = await Promise.all([getRevealedReview(), getActiveCycle()]);
+  const cycleName = cycle?.name ?? null;
   const view = decideSubjectView(status.displayStatus, Boolean(review?.narrative));
 
   if (view === "reveal" && review?.narrative) {
-    return <ReviewReady reviewId={review.reviewId} narrative={review.narrative} rating={review.rating} />;
+    return (
+      <ReviewReady
+        reviewId={review.reviewId}
+        narrative={review.narrative}
+        rating={review.rating}
+        ackWindowEndsAt={review.ackWindowEndsAt}
+        cycleName={cycleName}
+      />
+    );
   }
   if (view === "locked" && review?.narrative) {
     const response = await getMyResponse(review.reviewId);
-    return <ReviewLocked narrative={review.narrative} rating={review.rating} response={response} />;
+    return (
+      <ReviewLocked
+        narrative={review.narrative}
+        rating={review.rating}
+        response={response}
+        lockedAt={review.lockedAt}
+        cycleName={cycleName}
+      />
+    );
   }
   return <MyReviewStatus />; // safety fallback — never leak content
 }

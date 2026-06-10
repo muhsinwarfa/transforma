@@ -1,4 +1,5 @@
 import "server-only";
+import { loadSession } from "@/lib/auth/session";
 import { createRlsClient } from "@/lib/supabase/server";
 
 // Admin content oversight — the gated, audited read path (migrations 1800/1900).
@@ -13,6 +14,12 @@ export interface AdminReviewRow {
   department: string | null;
   status: string;
   flaggedInternal: boolean;
+  /** The approver-set rating, shown as a chip on the list row (prototype parity).
+   *  Present only when the DB list function surfaces it; absent ⇒ no chip. */
+  rating: string | null;
+  /** Lock timestamp, rendered as "Locked <date>" on locked rows (prototype parity).
+   *  Present only when the DB list function surfaces it; absent ⇒ no date. */
+  lockedAt: string | null;
 }
 
 /** The per-review list the admin clicks into. Returns [] unless the caller holds
@@ -26,6 +33,8 @@ export async function getAdminReviewList(): Promise<AdminReviewRow[]> {
     department: (r.department as string | null) ?? null,
     status: r.status as string,
     flaggedInternal: Boolean(r.flagged_internal),
+    rating: (r.rating as string | null) ?? null,
+    lockedAt: (r.locked_at as string | null) ?? null,
   }));
 }
 
@@ -69,7 +78,7 @@ export async function getAdminReviewContent(reviewId: string): Promise<ReviewCon
 
 export interface ReviewContentAccess {
   enabled: boolean; // the company setting (default on)
-  admins: { accountId: string; name: string; granted: boolean }[];
+  admins: { accountId: string; name: string; email: string; granted: boolean }[];
 }
 
 /** Settings-screen view of the access policy: the company toggle + every
@@ -85,15 +94,38 @@ export async function getReviewContentAccess(): Promise<ReviewContentAccess> {
   const adminIds = [...new Set((roleRows ?? []).map((r) => r.account_id as string))];
   if (adminIds.length === 0) return { enabled, admins: [] };
 
-  const { data: accts } = await supabase.from("accounts").select("id, display_name").in("id", adminIds);
+  const { data: accts } = await supabase.from("accounts").select("id, display_name, email").in("id", adminIds);
   const { data: grants } = await supabase.from("review_content_grants").select("account_id");
   const grantedSet = new Set((grants ?? []).map((g) => g.account_id as string));
   const admins = (accts ?? [])
     .map((a) => ({
       accountId: a.id as string,
       name: a.display_name as string,
+      email: (a.email as string | null) ?? "",
       granted: grantedSet.has(a.id as string),
     }))
     .sort((x, y) => x.name.localeCompare(y.name));
   return { enabled, admins };
+}
+
+export interface MyReviewAccess {
+  /** company switch (adminContentAccessEnabled, default on) */
+  enabled: boolean;
+  /** whether THIS admin holds the review-content capability (distinct from the role) */
+  granted: boolean;
+}
+
+/**
+ * The Reviews gate needs to distinguish three closed states that
+ * `admin_review_list()` alone collapses to `[]`:
+ *   • OFF      — the company switch is off (no admin can read, regardless of grant)
+ *   • NO-GRANT — switch on, but THIS caller lacks the per-admin capability
+ *   • EMPTY    — switch on, caller granted, but no finished reviews are readable
+ * We derive the caller's own grant from the same access read (the grants table is
+ * admin-readable under RLS), keyed to the signed-in account.
+ */
+export async function getMyReviewAccess(): Promise<MyReviewAccess> {
+  const [access, session] = await Promise.all([getReviewContentAccess(), loadSession()]);
+  const me = session ? access.admins.find((a) => a.accountId === session.accountId) : undefined;
+  return { enabled: access.enabled, granted: Boolean(me?.granted) };
 }

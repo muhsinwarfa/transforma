@@ -1,17 +1,8 @@
 import type { ReactNode } from "react";
 
+// Auth routes render the full-bleed two-panel AuthShell (.auth-stage owns its
+// own background + min-height). The layout stays a bare passthrough so the stage
+// fills the viewport edge-to-edge.
 export default function AuthLayout({ children }: { children: ReactNode }) {
-  return (
-    <main
-      style={{
-        minHeight: "100dvh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-        background: "var(--hero-gradient)",
-      }}
-    >
-      {children}
-    </main>
-  );
+  return <main>{children}</main>;
 }

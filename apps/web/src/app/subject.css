@@ -95,7 +95,7 @@
 .deadline svg { flex-shrink: 0; }
 
 /* ---- Acknowledge / response form ---- */
-.form-back { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-b); font-weight: 600; font-size: 13.5px; color: var(--ink-2); background: none; border: none; cursor: pointer; padding: 6px 4px; margin-bottom: 8px; border-radius: 8px; }
+.form-back { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-b); font-weight: 600; font-size: 13.5px; color: var(--ink-2); background: none; border: none; cursor: pointer; padding: 6px 4px; margin-bottom: 8px; border-radius: 8px; text-decoration: none; }
 .form-back:hover { color: var(--ink-1); }
 .form-fields { display: flex; flex-direction: column; gap: 18px; }
 
@@ -197,7 +197,7 @@
 .peer-sec-count { font-family: var(--font-b); font-weight: 700; font-size: 11px; background: var(--tint-blue); color: var(--blue-deep); border-radius: 999px; min-width: 20px; height: 20px; padding: 0 7px; display: inline-flex; align-items: center; justify-content: center; }
 .peer-list { display: flex; flex-direction: column; gap: 12px; }
 
-.peer-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer; background: var(--paper); }
+.peer-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer; background: var(--paper); text-decoration: none; color: inherit; }
 .peer-row:disabled { cursor: default; }
 .peer-row-main { flex: 1; min-width: 0; }
 .peer-row-top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }

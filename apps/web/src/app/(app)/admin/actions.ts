@@ -35,6 +35,70 @@ async function reviewIdFor(cycleId: string, employeeId: string): Promise<string>
   return data.id as string;
 }
 
+// ── cycle setup — write the cycles row via the EXISTING cycles_admin_write RLS ─
+// (migration 0400 grants admins full write to their own company's cycles). We
+// persist the basics (name, window) as columns and the operational knobs (peer
+// range, ack window, the per-cycle override flag) into cycles.settings jsonb —
+// the per-cycle override of company defaults the contract describes. The DB CHECK
+// `cycle_anonymity_threshold_min` backstops the anonymity floor (>= 3).
+export interface CycleSettingsInput {
+  name: string;
+  opensAt: string | null; // ISO or null when unparseable
+  closesAt: string | null;
+  peerRange: string; // "2–3" | "3–5" | "Open"
+  ackWindowDays: number; // 3 | 7 | 14
+  overridesCompanyDefaults: boolean;
+}
+
+export async function saveCycleSettings(input: CycleSettingsInput): Promise<{ id: string }> {
+  const session = await requireRole("admin");
+  const name = input.name.trim();
+  if (!name) throw new Error("A cycle name is required.");
+
+  const settings = {
+    peerRange: input.peerRange,
+    ackWindowDays: input.ackWindowDays,
+    overridesCompanyDefaults: input.overridesCompanyDefaults,
+  };
+
+  const supabase = await createRlsClient();
+  // Update the most recent cycle if one exists; otherwise create it. The RLS
+  // policy re-asserts company + admin on every path, so this fails closed.
+  const { data: existing } = await supabase
+    .from("cycles")
+    .select("id")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const { error } = await supabase
+      .from("cycles")
+      .update({ name, opens_at: input.opensAt, closes_at: input.closesAt, settings, updated_at: new Date().toISOString() })
+      .eq("id", existing.id as string);
+    if (error) throw new Error(error.message);
+    await createServiceRoleClient()
+      .schema("app")
+      .rpc("append_audit", { p_company: session.companyId, p_action: "cycle_settings_changed", p_actor: session.accountId, p_review: null, p_target: {} })
+      .then(undefined, () => {});
+    revalidatePath("/admin/cycle");
+    return { id: existing.id as string };
+  }
+
+  const { data: created, error } = await supabase
+    .from("cycles")
+    .insert({ company_id: session.companyId, name, opens_at: input.opensAt, closes_at: input.closesAt, status: "draft", settings })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  await createServiceRoleClient()
+    .schema("app")
+    .rpc("append_audit", { p_company: session.companyId, p_action: "cycle_settings_changed", p_actor: session.accountId, p_review: null, p_target: {} })
+    .then(undefined, () => {});
+  revalidatePath("/admin/cycle");
+  return { id: created.id as string };
+}
+
 // ── PROC-MAIN: start the cycle (eager fan-out) ──────────────────────────────
 export async function startCycleFanout() {
   const session = await requireRole("admin");
@@ -149,10 +213,19 @@ export interface RowError {
   msg: string;
   value: string;
 }
+export interface RosterRow {
+  name: string;
+  email: string;
+  role: string;
+  manager: string;
+  department: string;
+}
 export interface ImportResult {
   ok: boolean;
   imported: number;
   errors: RowError[];
+  // a small preview of the imported rows (for the success table); only set on ok
+  rows: RosterRow[];
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -162,13 +235,13 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
   const cycleId = await activeCycleId();
 
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return { ok: false, imported: 0, errors: [{ row: 0, col: "file", msg: "No data rows found.", value: "" }] };
+  if (lines.length < 2) return { ok: false, imported: 0, errors: [{ row: 0, col: "file", msg: "No data rows found.", value: "" }], rows: [] };
 
   const header = lines[0]!.split(",").map((h) => h.trim().toLowerCase());
   const need = ["name", "email", "role", "manager", "department"];
   const missing = need.filter((c) => !header.includes(c));
   if (missing.length > 0) {
-    return { ok: false, imported: 0, errors: [{ row: 1, col: "header", msg: `Missing columns: ${missing.join(", ")}`, value: header.join(",") }] };
+    return { ok: false, imported: 0, errors: [{ row: 1, col: "header", msg: `Missing columns: ${missing.join(", ")}`, value: header.join(",") }], rows: [] };
   }
   const idx = Object.fromEntries(need.map((c) => [c, header.indexOf(c)]));
 
@@ -188,7 +261,7 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
     rows.push({ name, email, role, manager, department });
   }
   // nothing is imported until EVERY row is valid (contract: validate-before-import)
-  if (errors.length > 0) return { ok: false, imported: 0, errors };
+  if (errors.length > 0) return { ok: false, imported: 0, errors, rows: [] };
 
   for (const r of rows) {
     await pgQuery(
@@ -205,7 +278,7 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
     .rpc("append_audit", { p_company: session.companyId, p_action: "roster_imported", p_actor: session.accountId, p_review: null, p_target: { count: rows.length } })
     .then(undefined, () => {});
   revalidatePath("/admin/roster");
-  return { ok: true, imported: rows.length, errors: [] };
+  return { ok: true, imported: rows.length, errors: [], rows };
 }
 
 // ── admin content access — the gated, audited read path (migrations 1800/1900) ─

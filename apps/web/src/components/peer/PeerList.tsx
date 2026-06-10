@@ -1,49 +1,46 @@
 import Link from "next/link";
 import { Avatar } from "@/components/atoms";
 import { IcoArrowRight, IcoCheck, IcoCheckCircle, IcoClock } from "@/components/atoms/icons";
-import type { PeerAssignment } from "@/lib/peer/feedback";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
+import { daysLeft, deadlineClass, deadlineText, type PeerAssignment } from "@/lib/peer/feedback";
 
-function daysLeft(deadlineAt: string | null): number | null {
-  if (!deadlineAt) return null;
-  return Math.ceil((new Date(deadlineAt).getTime() - Date.now()) / 86_400_000);
-}
-function deadlineClass(d: number | null): string {
-  if (d === null) return "calm";
-  if (d < 0) return "closed";
-  if (d <= 3) return "";
-  return "calm";
-}
-function deadlineText(deadlineAt: string | null): string {
-  const d = daysLeft(deadlineAt);
-  if (d === null) return "No deadline set";
-  if (d < 0) return "Window closed";
-  if (d === 0) return "Due today";
-  return `${d} ${d === 1 ? "day" : "days"} left`;
-}
+// The underlying configurable token behind each tenant role word (revealed by the
+// "Show role tokens" toggle; hidden via the .tok / body.show-tokens CSS otherwise).
+const SUBJECT_TOKEN = "subject_label";
 
-function Row({ req }: { req: PeerAssignment }) {
-  const done = req.state === "submitted";
-  const closed = req.state === "closed" || req.state === "declined";
+function Row({ req, labels, done }: { req: PeerAssignment; labels: RoleLabels; done?: boolean }) {
+  const closed = req.state === "closed";
   return (
     <Link href={`/peer/${req.reviewId}`} className="card pad peer-row interactive">
       <Avatar name={req.subjectName} cls="lg" />
       <div className="peer-row-main">
         <div className="peer-row-top">
           <span className="peer-row-name">{req.subjectName}</span>
+          <span className="role-chip sm">
+            {labels.subject}
+            <span className="tok">{`{${SUBJECT_TOKEN}}`}</span>
+          </span>
         </div>
         {req.department ? <span className="peer-row-rel">{req.department}</span> : null}
         <div className="peer-row-foot">
           {done ? (
-            <span className="badge in-review sm">
+            <span
+              className="badge in-review sm"
+              style={{
+                background: "rgba(0,0,77,0.05)",
+                color: "var(--ink-2)",
+                borderColor: "var(--hairline)",
+              }}
+            >
               <IcoCheck s={11} sw={2.4} />
               Submitted
             </span>
           ) : closed ? (
             <span className="deadline closed">
-              <IcoClock s={13} sw={1.9} /> {req.state === "declined" ? "Declined" : "Window closed"}
+              <IcoClock s={13} sw={1.9} /> {deadlineText(req.deadlineAt)}
             </span>
           ) : (
-            <span className={`deadline ${deadlineClass(daysLeft(req.deadlineAt))}`}>
+            <span className={`deadline ${deadlineClass(daysLeft(req.deadlineAt))}`.trim()}>
               <IcoClock s={13} sw={1.9} /> {deadlineText(req.deadlineAt)}
             </span>
           )}
@@ -64,8 +61,9 @@ function Row({ req }: { req: PeerAssignment }) {
   );
 }
 
-export function PeerList({ requests }: { requests: PeerAssignment[] }) {
-  const open = requests.filter((r) => r.state === "new" || r.state === "draft");
+export function PeerList({ requests, labels }: { requests: PeerAssignment[]; labels: RoleLabels }) {
+  // declined rows are a terminal, non-actionable outcome — they sit with closed.
+  const open = requests.filter((r) => r.state !== "submitted" && r.state !== "closed" && r.state !== "declined");
   const done = requests.filter((r) => r.state === "submitted");
   const closed = requests.filter((r) => r.state === "closed" || r.state === "declined");
 
@@ -94,7 +92,7 @@ export function PeerList({ requests }: { requests: PeerAssignment[] }) {
           </div>
           <div className="peer-list">
             {open.map((r) => (
-              <Row key={r.reviewId} req={r} />
+              <Row key={r.reviewId} req={r} labels={labels} />
             ))}
           </div>
         </section>
@@ -108,7 +106,7 @@ export function PeerList({ requests }: { requests: PeerAssignment[] }) {
           </div>
           <div className="peer-list">
             {done.map((r) => (
-              <Row key={r.reviewId} req={r} />
+              <Row key={r.reviewId} req={r} labels={labels} done />
             ))}
           </div>
         </section>
@@ -122,7 +120,7 @@ export function PeerList({ requests }: { requests: PeerAssignment[] }) {
           </div>
           <div className="peer-list">
             {closed.map((r) => (
-              <Row key={r.reviewId} req={r} />
+              <Row key={r.reviewId} req={r} labels={labels} />
             ))}
           </div>
         </section>

@@ -51,5 +51,5 @@ export default async function NominationDetailPage({ params }: { params: Promise
     );
   }
 
-  return <NominationApproval data={data} />;
+  return <NominationApproval data={data} labels={labels} />;
 }

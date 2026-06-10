@@ -1,14 +1,34 @@
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
+import { resolveLabels } from "@/lib/labels/roleLabel";
 import { getReviewContentAccess } from "@/lib/admin/content";
 import { getActiveCycle, getCycleDefaults, getParticipants, getRoleLabels } from "@/lib/admin/data";
 
-export default async function AdminSettingsPage() {
-  const [labels, defaults, cycle, reviewAccess] = await Promise.all([
+type Tab = "labels" | "defaults" | "access" | "actions";
+const TABS: Tab[] = ["labels", "defaults", "access", "actions"];
+
+export default async function AdminSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const [labels, defaults, cycle, reviewAccess, resolved] = await Promise.all([
     getRoleLabels(),
     getCycleDefaults(),
     getActiveCycle(),
     getReviewContentAccess(),
+    resolveLabels(),
   ]);
   const participants = cycle ? await getParticipants(cycle.id) : [];
-  return <SettingsPanel labels={labels} defaults={defaults} participants={participants} reviewAccess={reviewAccess} />;
+  const initialTab: Tab = TABS.includes(tab as Tab) ? (tab as Tab) : "labels";
+  return (
+    <SettingsPanel
+      labels={labels}
+      defaults={defaults}
+      participants={participants}
+      reviewAccess={reviewAccess}
+      adminLabel={resolved.admin}
+      initialTab={initialTab}
+    />
+  );
 }

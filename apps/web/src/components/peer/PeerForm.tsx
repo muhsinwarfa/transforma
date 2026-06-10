@@ -3,10 +3,39 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/atoms";
 import { IcoChevLeft, IcoClock, IcoInfo, IcoLock, IcoSaved, IcoSpinner } from "@/components/atoms/icons";
+import { useToast } from "@/components/Toast";
 import { declinePeerFeedback, savePeerFeedback, submitPeerFeedback } from "@/app/(app)/peer/actions";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
 import type { PeerAnswers, PeerFeedbackView, PeerPrompt } from "@/lib/peer/feedback";
 
 type SaveState = "idle" | "saving" | "saved";
+
+// Ported verbatim from the design (peer.jsx). Inlined here because the lib helpers
+// live in a `server-only` module; these are pure and identical.
+const SUBJECT_TOKEN = "subject_label";
+function shortDate(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function daysLeft(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+}
+function deadlineClass(d: number | null): string {
+  if (d === null) return "calm";
+  if (d < 0) return "closed";
+  if (d <= 3) return "";
+  return "calm";
+}
+function deadlineText(iso: string | null): string {
+  const d = daysLeft(iso);
+  const date = shortDate(iso);
+  if (d === null) return "No deadline set";
+  if (d < 0) return `Closed ${date}`;
+  if (d === 0) return `Due today · ${date}`;
+  return `Due ${date} · ${d} ${d === 1 ? "day" : "days"} left`;
+}
+
 const DECLINE_REASONS = [
   "I haven't worked with them closely enough",
   "I've only just started working with them",
@@ -14,8 +43,17 @@ const DECLINE_REASONS = [
   "Another reason",
 ];
 
-export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: readonly PeerPrompt[] }) {
+export function PeerForm({
+  data,
+  prompts,
+  labels,
+}: {
+  data: PeerFeedbackView;
+  prompts: readonly PeerPrompt[];
+  labels: RoleLabels;
+}) {
   const router = useRouter();
+  const toast = useToast();
   const firstName = data.subjectName.split(" ")[0] || "them";
   const required = prompts.filter((p) => !p.optional);
 
@@ -30,6 +68,7 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
   const answered = required.filter((p) => (answers[p.id] ?? "").trim().length > 0).length;
   const pct = Math.round((answered / required.length) * 100);
   const canSubmit = answered === required.length;
+  const dClass = deadlineClass(daysLeft(data.deadlineAt));
 
   const onChange = (id: string, val: string) => {
     const next = { ...answers, [id]: val };
@@ -48,6 +87,7 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
     start(async () => {
       try {
         await submitPeerFeedback(data.reviewId, answers);
+        toast(`Feedback for ${data.subjectName} submitted.`);
         router.push("/peer");
         router.refresh();
       } catch (e) {
@@ -60,7 +100,10 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
     setError(null);
     start(async () => {
       try {
-        await declinePeerFeedback(data.reviewId);
+        // The reason is optional; it rides into the audit target jsonb, not a
+        // schema column (no silently-dropped field).
+        await declinePeerFeedback(data.reviewId, declineReason || undefined);
+        toast(`Request for ${data.subjectName} declined.`);
         router.push("/peer");
         router.refresh();
       } catch (e) {
@@ -92,7 +135,10 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
         <div className="form-fields">
           <div className="field">
             <span className="field-label">
-              A quick reason helps <span className="field-hint" style={{ fontWeight: 400 }}>(optional)</span>
+              A quick reason helps{" "}
+              <span className="field-hint" style={{ fontWeight: 400 }}>
+                (optional)
+              </span>
             </span>
             <div className="reason-list" role="radiogroup" aria-label="Reason for declining">
               {DECLINE_REASONS.map((r) => (
@@ -109,7 +155,11 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
               ))}
             </div>
           </div>
-          {error ? <p className="field-msg" style={{ color: "var(--error)" }}>{error}</p> : null}
+          {error ? (
+            <p className="field-msg" style={{ color: "var(--error)" }}>
+              {error}
+            </p>
+          ) : null}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn btn-primary lg" onClick={confirmDecline} disabled={pending}>
               {pending ? <IcoSpinner s={17} /> : null} Decline this request
@@ -134,12 +184,16 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
         <div className="psh-body">
           <div className="psh-top">
             <h1 className="psh-name">Feedback for {data.subjectName}</h1>
+            <span className="role-chip sm">
+              {labels.subject}
+              <span className="tok">{`{${SUBJECT_TOKEN}}`}</span>
+            </span>
           </div>
           {data.department ? <span className="psh-rel">{data.department}</span> : null}
         </div>
         {data.deadlineAt ? (
-          <span className="deadline calm psh-deadline">
-            <IcoClock s={13} sw={1.9} /> Due {new Date(data.deadlineAt).toLocaleDateString()}
+          <span className={`deadline ${dClass} psh-deadline`.replace(/\s+/g, " ").trim()}>
+            <IcoClock s={13} sw={1.9} /> {deadlineText(data.deadlineAt)}
           </span>
         ) : null}
       </div>
@@ -201,7 +255,11 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
         </button>
       </div>
 
-      {error ? <p className="field-msg" style={{ color: "var(--error)" }}>{error}</p> : null}
+      {error ? (
+        <p className="field-msg" style={{ color: "var(--error)" }}>
+          {error}
+        </p>
+      ) : null}
 
       <div className="sr-actionbar">
         <span className={`autosave ${save}`}>
@@ -221,19 +279,24 @@ export function PeerForm({ data, prompts }: { data: PeerFeedbackView; prompts: r
               <span className="as-ico">
                 <IcoSaved s={16} sw={1.8} />
               </span>{" "}
-              We save as you go
+              Saved automatically
             </>
           )}
         </span>
-        <button className="btn btn-primary" onClick={submit} disabled={!canSubmit || pending}>
-          {pending ? (
-            <>
-              <IcoSpinner s={18} /> Submitting…
-            </>
-          ) : (
-            "Submit feedback"
-          )}
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn btn-ghost" onClick={() => router.push("/peer")} disabled={pending}>
+            Save &amp; close
+          </button>
+          <button className="btn btn-primary" onClick={submit} disabled={!canSubmit || pending}>
+            {pending ? (
+              <>
+                <IcoSpinner s={18} /> Submitting…
+              </>
+            ) : (
+              "Submit feedback"
+            )}
+          </button>
+        </div>
       </div>
       {!canSubmit ? (
         <p className="tf-scope-note" style={{ justifyContent: "flex-end" }}>

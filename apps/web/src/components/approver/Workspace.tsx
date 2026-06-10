@@ -16,8 +16,13 @@ import {
   IcoReview,
   IcoSpinner,
 } from "@/components/atoms/icons";
+import { useToast } from "@/components/Toast";
 import { editDraftNarrative, finalizeReview, setReviewRating } from "@/app/(app)/approvals/actions";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
 import type { Workspace } from "@/lib/approver/data";
+
+// The underlying configurable token behind the tenant role word.
+const SUBJECT_TOKEN = "subject_label";
 
 // The four narrative sections, in display order. Keys are the canonical
 // NarrativeSections keys; there is NO rating section — the rating is the
@@ -41,8 +46,28 @@ function seedSections(narrative: Workspace["narrative"]): Sections {
   };
 }
 
-export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ratingOptions: string[] }) {
+// Describe the inputs WITHOUT quantifying peer feedback below the floor (the
+// non-quantifying-boolean decision) — never a count once the threshold isn't met.
+function inputsText(data: Workspace): string {
+  if (data.belowFloor || data.peerCount === null) {
+    return "Self-review only · peer feedback below the confidentiality threshold";
+  }
+  return `Self-review · ${data.peerCount} peer ${data.peerCount === 1 ? "response" : "responses"}`;
+}
+
+export function ApproverWorkspace({
+  data,
+  ratingOptions,
+  labels,
+  cycleName,
+}: {
+  data: Workspace;
+  ratingOptions: string[];
+  labels: RoleLabels;
+  cycleName: string | null;
+}) {
   const router = useRouter();
+  const toast = useToast();
   const isFlagged = data.status === "flagged" || data.flagged;
   const firstName = data.subjectName.split(" ")[0] || "they";
 
@@ -55,7 +80,11 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
   const [savingNarrative, startSave] = useTransition();
   const [finalizing, startFinalize] = useTransition();
 
-  const canFinalize = rating !== "";
+  // Finalize is gated on a rating AND on the editor being closed. The editor only
+  // persists on "Done editing", so finalizing mid-edit would lock the STALE saved
+  // narrative — losing the typed text. Disabling finalize while `editing` (plus
+  // the flush-before-finalize below) makes finalize-with-a-dirty-editor impossible.
+  const canFinalize = rating !== "" && !editing;
   const anyEdited = Object.keys(touched).length > 0;
 
   const markEdited = (key: SectionKey, val: string) => {
@@ -89,8 +118,16 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
     setError(null);
     startFinalize(async () => {
       try {
+        // Belt-and-braces against the data-loss path: if the editor is still open
+        // (or any section was touched), flush the in-memory narrative BEFORE the
+        // permanent reveal so the typed text — not a stale saved draft — is locked.
+        if (editing || anyEdited) {
+          await editDraftNarrative(data.reviewId, sections);
+          setEditing(false);
+        }
         await finalizeReview(data.reviewId);
         setShowConfirm(false);
+        toast(`${data.subjectName}'s review finalized — sent to acknowledge.`);
         router.push("/approvals");
         router.refresh();
       } catch (e) {
@@ -111,9 +148,15 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
         <div className="awc-body">
           <div className="awc-top">
             <h1 className="awc-name">{data.subjectName}</h1>
+            <span className="role-chip sm">
+              {labels.subject}
+              <span className="tok">{`{${SUBJECT_TOKEN}}`}</span>
+            </span>
             {isFlagged ? <StatusBadge status="flagged" sm /> : null}
           </div>
-          {data.department ? <div className="awc-meta">{data.department}</div> : null}
+          <div className="awc-meta">
+            {[data.department, cycleName].filter(Boolean).join(" · ")}
+          </div>
         </div>
         <div className="aw-inputs">
           <span className="input-chip">
@@ -138,9 +181,9 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
           </span>
           <div className="fb-body">
             <strong>This review is flagged.</strong>{" "}
-            {data.belowFloor
-              ? "Peer feedback didn't meet the confidentiality threshold, so the draft is built from the self-review only. Review it carefully, edit as needed, set a rating, then finalize."
-              : "The draft needs your attention before it can be finalized. Edit it to fill any gaps, set a rating, then finalize."}
+            {data.flagReason
+              ? data.flagReason
+              : "Peer feedback didn't meet the confidentiality threshold, so the draft is built from the self-review only. Review it carefully, edit as needed, set a rating, then finalize."}
           </div>
         </div>
       ) : null}
@@ -158,7 +201,7 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
             <div className="dch-left">
               <div>
                 <h2 className="draft-card-title">Draft review</h2>
-                <div className="draft-card-sub">Synthesized from real feedback — narrative only</div>
+                <div className="draft-card-sub">Synthesized from {inputsText(data).toLowerCase()}</div>
               </div>
               <StatusBadge status={isFlagged ? "flagged" : "in-review"} sm />
             </div>
@@ -236,7 +279,7 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
                 disabled={!canFinalize || finalizing}
                 onClick={() => setShowConfirm(true)}
               >
-                <IcoCheck s={17} sw={2.2} /> Finalize &amp; reveal
+                <IcoLock s={17} /> Finalize &amp; reveal
               </button>
               {!canFinalize ? (
                 <p className="decision-meta">
@@ -244,8 +287,7 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
                 </p>
               ) : (
                 <p className="decision-meta">
-                  <IcoInfo s={14} /> {firstName} will be able to read and acknowledge this once you finalize. It locks
-                  only after they do.
+                  <IcoInfo s={14} /> {firstName} will be able to read and acknowledge this once you finalize.
                 </p>
               )}
             </div>
@@ -257,6 +299,7 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
         <FinalizeModal
           subjectName={data.subjectName}
           rating={rating}
+          cycleName={cycleName}
           finalizing={finalizing}
           onCancel={() => setShowConfirm(false)}
           onConfirm={confirmFinalize}
@@ -269,12 +312,14 @@ export function ApproverWorkspace({ data, ratingOptions }: { data: Workspace; ra
 function FinalizeModal({
   subjectName,
   rating,
+  cycleName,
   finalizing,
   onCancel,
   onConfirm,
 }: {
   subjectName: string;
   rating: string;
+  cycleName: string | null;
   finalizing: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -297,7 +342,9 @@ function FinalizeModal({
           <IcoCheckCircle s={26} />
         </span>
         <h2 id="fz-title">Finalize this review?</h2>
-        <p>You&apos;re about to finalize {subjectName}&apos;s review.</p>
+        <p>
+          You&apos;re about to finalize {subjectName}&apos;s review{cycleName ? ` for ${cycleName}` : ""}.
+        </p>
         <div className="modal-summary">
           <div className="ms-row">
             <IcoDoc s={16} sw={1.8} /> Rating you set: <strong>{rating}</strong>
@@ -309,8 +356,8 @@ function FinalizeModal({
         <div className="modal-irreversible">
           <IcoInfo s={16} sw={1.9} />
           <span>
-            The review moves to <strong>Awaiting acknowledgement</strong> and is revealed to {firstName}. It locks
-            permanently once {firstName} acknowledges, or when the acknowledgement window closes — not before.
+            The review moves to Awaiting acknowledgement and is revealed to {firstName}. It locks permanently once{" "}
+            {firstName} acknowledges, or when the acknowledgement window closes — not before.
           </span>
         </div>
         <div className="modal-actions">

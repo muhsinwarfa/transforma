@@ -3,13 +3,13 @@ import { RATING_OPTIONS } from "@transforma/db";
 import { ApproverFinalized } from "@/components/approver/Finalized";
 import { ApproverWorkspace } from "@/components/approver/Workspace";
 import { IcoChevLeft, IcoShield } from "@/components/atoms/icons";
+import { getActiveCycle } from "@/lib/admin/data";
 import { getWorkspace } from "@/lib/approver/data";
 import { resolveLabels } from "@/lib/labels/roleLabel";
 
 export default async function ApprovalWorkspacePage({ params }: { params: Promise<{ reviewId: string }> }) {
   const { reviewId } = await params;
-  const data = await getWorkspace(reviewId);
-  const labels = await resolveLabels();
+  const [data, labels, cycle] = await Promise.all([getWorkspace(reviewId), resolveLabels(), getActiveCycle()]);
 
   // ABSENCE at the data layer, not a hidden UI row. RLS returns the review only
   // to its assigned approver; a SoD-barred approver hand-typing this URL gets
@@ -38,9 +38,16 @@ export default async function ApprovalWorkspacePage({ params }: { params: Promis
 
   // Finalized (revealed, awaiting ack) or locked → read-only; no correction path.
   if (data.status === "awaiting-acknowledgement" || data.status === "locked") {
-    return <ApproverFinalized data={data} />;
+    return <ApproverFinalized data={data} labels={labels} cycleName={cycle?.name ?? null} />;
   }
 
   // Pre-finalize editable states (in-review / flagged).
-  return <ApproverWorkspace data={data} ratingOptions={[...RATING_OPTIONS]} />;
+  return (
+    <ApproverWorkspace
+      data={data}
+      ratingOptions={[...RATING_OPTIONS]}
+      labels={labels}
+      cycleName={cycle?.name ?? null}
+    />
+  );
 }

@@ -55,6 +55,21 @@ export function Avatar({ name, initial, cls = "" }: { name?: string; initial?: s
   );
 }
 
+// Inline role word — the resolved tenant label (bold via .role-label) plus the
+// configurable {token} annotation (revealed by the "Show role tokens" toggle via
+// body.show-tokens). Mirrors the prototype's RoleLabel so body copy wraps the same
+// way it does in the comps. Pass the already-resolved `label` (e.g. labels.peer)
+// and the role's token name (e.g. "peer_label").
+export function RoleLabel({ label, token, plural }: { label: string; token?: string; plural?: boolean }) {
+  return (
+    <span className="role-label">
+      {label}
+      {plural && !label.endsWith("s") ? "s" : ""}
+      {token ? <span className="tok">{`{${token}}`}</span> : null}
+    </span>
+  );
+}
+
 type ButtonVariant = "primary" | "secondary" | "ghost" | "outline" | "destructive";
 
 export function Button({

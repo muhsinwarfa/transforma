@@ -1,10 +1,16 @@
 "use client";
 import Link from "next/link";
-import { useActionState } from "react";
 import { Button } from "@/components/atoms";
+import { IcoCheckCircle, IcoClock } from "@/components/atoms/icons";
 import type { TokenState } from "@/lib/auth/tokens";
-import { activateAndSetPassword, type AuthFormState } from "../../auth-actions";
+import { AuthShell } from "../../AuthShell";
+import { SetPasswordForm } from "../../SetPasswordForm";
+import { activateAndSetPassword } from "../../auth-actions";
 
+// Activation landing. Ported from docs/design/prototype/auth.jsx
+// (ActivationValid + ActivationState). Valid → the shared SetPasswordForm;
+// expired/used/missing → the matching status states pointing at the
+// administrator (no "send me a new link" — links are admin-issued).
 export function ActivateView({
   token,
   state,
@@ -14,62 +20,74 @@ export function ActivateView({
   state: TokenState;
   email: string | null;
 }) {
-  if (state !== "valid") {
-    const msg =
-      state === "expired"
-        ? "This activation link has expired."
-        : state === "used"
-          ? "This activation link has already been used."
-          : "This activation link isn't valid.";
-    return (
-      <div className="card pad" style={{ width: 380, maxWidth: "100%" }}>
-        <h1 style={{ font: "var(--h2)", color: "var(--ink-1)" }}>{msg}</h1>
-        <p className="field-hint" style={{ marginTop: 10 }}>
-          Ask your administrator for a new link, or sign in if you&apos;ve already activated.
-        </p>
-        <div style={{ marginTop: 16 }}>
-          <Link href="/login">
-            <Button variant="secondary">Go to sign in</Button>
-          </Link>
-        </div>
-      </div>
-    );
+  if (state === "valid") {
+    return <ActivationValid token={token} email={email ?? ""} />;
   }
-  return <SetPasswordForm token={token} email={email ?? ""} />;
+  return <ActivationState state={state} />;
 }
 
-function SetPasswordForm({ token, email }: { token: string; email: string }) {
-  const bound = activateAndSetPassword.bind(null, token);
-  const [result, action, pending] = useActionState<AuthFormState | null, FormData>(bound, null);
+function ActivationValid({ token, email }: { token: string; email: string }) {
+  const onSubmit = async (password: string) => {
+    const fd = new FormData();
+    fd.set("email", email);
+    fd.set("password", password);
+    return activateAndSetPassword(token, null, fd);
+  };
   return (
-    <div className="card pad" style={{ width: 380, maxWidth: "100%" }}>
-      <p style={{ font: "var(--label)", textTransform: "uppercase", letterSpacing: "0.18em", color: "var(--ink-3)" }}>
-        You&apos;re invited
+    <AuthShell
+      footer={
+        <span>
+          This invite is for <strong>{email}</strong>
+        </span>
+      }
+    >
+      <span className="auth-eyebrow">You&apos;re invited</span>
+      <h1 className="auth-h">Set up your account.</h1>
+      <p className="auth-sub">
+        You&apos;ve been invited to take part in H1 2026 Review. Choose a password to activate your account.
       </p>
-      <h1 style={{ font: "var(--h2)", marginTop: 6, color: "var(--ink-1)" }}>Set your password</h1>
-      <p className="field-hint" style={{ marginTop: 8 }}>
-        Activating <strong>{email}</strong>.
-      </p>
-      <form action={action} style={{ marginTop: 18, display: "grid", gap: 12 }}>
-        <input type="hidden" name="email" value={email} />
-        <div className="field">
-          <label className="field-label" htmlFor="password">Choose a password</label>
-          <input
-            className="input"
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
-          <span className="field-hint">At least 8 characters.</span>
-        </div>
-        {result?.error ? <p className="field-msg" style={{ color: "var(--error)" }}>{result.error}</p> : null}
-        <Button type="submit" variant="primary" lg disabled={pending}>
-          {pending ? "Activating…" : "Activate account"}
-        </Button>
-      </form>
-    </div>
+      <SetPasswordForm cta="Activate account" busyLabel="Saving…" onSubmit={onSubmit} />
+    </AuthShell>
+  );
+}
+
+function ActivationState({ state }: { state: Exclude<TokenState, "valid"> }) {
+  // `used` reads as a success (account already active); expired/missing read as a
+  // warning. Either way the next step is the administrator, never a self-serve link.
+  const used = state === "used";
+  const v = used
+    ? {
+        glyph: "ok" as const,
+        ico: <IcoCheckCircle s={26} />,
+        title: "This link has already been used",
+        body: "Your account is already active. Sign in with the password you set when you activated it.",
+        cta: "Go to sign in",
+      }
+    : {
+        glyph: "warn" as const,
+        ico: <IcoClock s={26} />,
+        title: "This link has expired",
+        body: "Activation links are single-use and valid for 7 days. Your administrator can send you a fresh one.",
+        cta: "Back to sign in",
+      };
+  return (
+    <AuthShell
+      footer={
+        <span>
+          Need help? <Link href="/login">Contact your administrator</Link>
+        </span>
+      }
+    >
+      <div className={`auth-status-mark ${v.glyph}`}>{v.ico}</div>
+      <h1 className="auth-h">{v.title}</h1>
+      <p className="auth-sub">{v.body}</p>
+      <div className="auth-form">
+        <Link href="/login">
+          <Button type="button" variant="primary" lg className="block">
+            {v.cta}
+          </Button>
+        </Link>
+      </div>
+    </AuthShell>
   );
 }

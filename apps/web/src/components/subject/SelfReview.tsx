@@ -1,8 +1,19 @@
 "use client";
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
-import { Button } from "@/components/atoms";
-import { IcoCheck, IcoInfo, IcoSaved, IcoSpinner } from "@/components/atoms/icons";
-import { RoleLabel } from "@/lib/labels/RoleLabelProvider";
+import { Button, RoleLabel } from "@/components/atoms";
+import {
+  IcoArrowRight,
+  IcoCheckCircle,
+  IcoDoc,
+  IcoInfo,
+  IcoPeer,
+  IcoSaved,
+  IcoShield,
+  IcoSpinner,
+} from "@/components/atoms/icons";
+import { useToast } from "@/components/Toast";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
 import { saveSelfReview, submitSelfReview } from "@/app/(app)/review/self/actions";
 import type { SelfAnswers } from "@/lib/subject/selfReview";
 
@@ -15,6 +26,7 @@ export function SelfReviewForm({ prompts, seed }: { prompts: readonly Prompt[]; 
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
 
   const answered = prompts.filter((p) => (answers[p.id] ?? "").trim().length > 0).length;
   const pct = Math.round((answered / prompts.length) * 100);
@@ -36,6 +48,7 @@ export function SelfReviewForm({ prompts, seed }: { prompts: readonly Prompt[]; 
     start(async () => {
       try {
         await submitSelfReview(answers);
+        toast("Self-review submitted.");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't submit your self-review.");
       }
@@ -70,6 +83,10 @@ export function SelfReviewForm({ prompts, seed }: { prompts: readonly Prompt[]; 
       </div>
 
       <div className="sr-intro-card">
+        <p className="t-body" style={{ color: "var(--ink-1)" }}>
+          There are no wrong answers here. Write the way you&apos;d talk —{" "}
+          <span className="t-em">short and honest beats long and polished.</span>
+        </p>
         <div className="sr-progress">
           <div className="sr-progress-track">
             <div className="sr-progress-fill" style={{ width: `${pct}%` }} />
@@ -119,19 +136,24 @@ export function SelfReviewForm({ prompts, seed }: { prompts: readonly Prompt[]; 
               <span className="as-ico">
                 <IcoSaved s={16} sw={1.8} />
               </span>{" "}
-              We save as you go
+              All changes saved
             </>
           )}
         </span>
-        <Button variant="primary" onClick={submit} disabled={answered < prompts.length || pending}>
-          {pending ? (
-            <>
-              <IcoSpinner s={18} /> Submitting…
-            </>
-          ) : (
-            "Submit self-review"
-          )}
-        </Button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Link href="/home" className="btn btn-ghost">
+            Save &amp; close
+          </Link>
+          <Button variant="primary" onClick={submit} disabled={answered < prompts.length || pending}>
+            {pending ? (
+              <>
+                <IcoSpinner s={18} /> Submitting…
+              </>
+            ) : (
+              "Submit self-review"
+            )}
+          </Button>
+        </div>
       </div>
       {answered < prompts.length ? (
         <p className="tf-scope-note" style={{ justifyContent: "flex-end" }}>
@@ -142,19 +164,63 @@ export function SelfReviewForm({ prompts, seed }: { prompts: readonly Prompt[]; 
   );
 }
 
-export function SelfSubmittedCard() {
+export function SelfSubmittedCard({ labels }: { labels: RoleLabels }) {
   return (
     <div className="tf-page subj-narrow">
       <div className="card pad">
         <div className="confirm-hero">
           <span className="confirm-mark">
-            <IcoCheck s={40} sw={1.7} />
+            <IcoCheckCircle s={40} sw={1.7} />
           </span>
           <h1>Your self-review is in.</h1>
           <p>
             Thank you — that&apos;s a big piece done. It&apos;s locked for editing so everyone&apos;s working from the
-            same version. Your <RoleLabel role="peer" plural /> share their input in parallel.
+            same version.
           </p>
+        </div>
+        <div className="confirm-next">
+          <p className="cn-label">What happens next</p>
+          <div className="confirm-row">
+            <span className="cr-ico">
+              <IcoPeer s={18} />
+            </span>
+            <span className="cr-text">
+              Peer feedback runs alongside this
+              <span>
+                Your nominated <RoleLabel label={labels.peer} token="peer_label" plural /> share their input in
+                parallel — you won&apos;t see who said what.
+              </span>
+            </span>
+          </div>
+          <div className="confirm-row">
+            <span className="cr-ico">
+              <IcoDoc s={18} />
+            </span>
+            <span className="cr-text">
+              A draft review is prepared
+              <span>
+                Your real feedback is synthesized into a narrative draft. Drafts stay private until your review is
+                final.
+              </span>
+            </span>
+          </div>
+          <div className="confirm-row">
+            <span className="cr-ico">
+              <IcoShield s={18} />
+            </span>
+            <span className="cr-text">
+              Your <RoleLabel label={labels.approver} token="approver_label" /> finalizes it
+              <span>They edit the narrative and set your rating, then send it to you to read.</span>
+            </span>
+          </div>
+        </div>
+        <div className="confirm-actions">
+          <Link href="/home" className="btn btn-secondary">
+            Back to home
+          </Link>
+          <Link href="/review" className="btn btn-primary">
+            See where it is <IcoArrowRight s={16} />
+          </Link>
         </div>
       </div>
     </div>

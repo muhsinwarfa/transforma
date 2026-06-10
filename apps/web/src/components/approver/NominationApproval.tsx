@@ -2,13 +2,15 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Avatar } from "@/components/atoms";
-import { IcoCheck, IcoChevLeft, IcoEdit, IcoInfo, IcoSpinner } from "@/components/atoms/icons";
-import { RoleLabel } from "@/lib/labels/RoleLabelProvider";
+import { IcoAlert, IcoCheck, IcoChevLeft, IcoEdit, IcoSpinner } from "@/components/atoms/icons";
+import { useToast } from "@/components/Toast";
 import { approveNominations, requestNominationChanges } from "@/app/(app)/nominations/actions";
 import type { NominationDetail } from "@/lib/approver/nominations";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
 
-export function NominationApproval({ data }: { data: NominationDetail }) {
+export function NominationApproval({ data, labels }: { data: NominationDetail; labels: RoleLabels }) {
   const router = useRouter();
+  const toast = useToast();
   const firstName = data.subjectName.split(" ")[0] || "them";
   const [mode, setMode] = useState<"idle" | "changes">("idle");
   const [note, setNote] = useState("");
@@ -22,6 +24,7 @@ export function NominationApproval({ data }: { data: NominationDetail }) {
     start(async () => {
       try {
         await approveNominations(data.cycleId, data.employeeId);
+        toast("Nominations approved.");
         router.push("/nominations");
         router.refresh();
       } catch (e) {
@@ -35,6 +38,7 @@ export function NominationApproval({ data }: { data: NominationDetail }) {
     start(async () => {
       try {
         await requestNominationChanges(data.cycleId, data.employeeId, note);
+        toast("Sent back with your note.");
         router.push("/nominations");
         router.refresh();
       } catch (e) {
@@ -54,17 +58,18 @@ export function NominationApproval({ data }: { data: NominationDetail }) {
         <div className="awc-body">
           <div className="awc-top">
             <h1 className="awc-name">{data.subjectName}</h1>
+            <span className="role-chip sm">{labels.subject}</span>
           </div>
           <div className="awc-meta">
             {data.department ? `${data.department} · ` : ""}nominated {data.nominees.length}{" "}
-            <RoleLabel role="peer" plural={data.nominees.length !== 1} />
+            {data.nominees.length === 1 ? "peer" : "peers"}
           </div>
         </div>
       </div>
 
       <div className="card pad" style={{ marginBottom: 16 }}>
         <h2 className="t-h3" style={{ marginBottom: 4 }}>
-          Nominated <RoleLabel role="peer" plural />
+          Nominated reviewers
         </h2>
         <p className="t-body-sm" style={{ marginBottom: 16 }}>
           Minimum {data.minPeers} · maximum {data.maxPeers} for this cycle.
@@ -81,11 +86,15 @@ export function NominationApproval({ data }: { data: NominationDetail }) {
           ))}
         </div>
         {belowFloor ? (
-          <p className="tf-scope-note" style={{ marginTop: 14 }}>
-            <IcoInfo s={15} /> This is below the confidentiality floor of {data.minPeers}{" "}
-            <RoleLabel role="peer" plural />. You can still approve — if too few submit, the review draws on the
-            self-review only.
-          </p>
+          <div className="notice warn" style={{ marginTop: 14 }}>
+            <span className="n-ico">
+              <IcoAlert s={18} sw={1.9} />
+            </span>
+            <span>
+              This is below the confidentiality floor of {data.minPeers} peers. You can still approve — if too few
+              submit, the review draws on the self-review only.
+            </span>
+          </div>
         ) : null}
       </div>
 

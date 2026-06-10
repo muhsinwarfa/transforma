@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Avatar, StatusBadge } from "@/components/atoms";
 import { IcoCheck, IcoCheckCircle, IcoChevLeft, IcoLock } from "@/components/atoms/icons";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
 import type { Workspace } from "@/lib/approver/data";
 
 const SECTIONS = [
@@ -16,7 +17,15 @@ const SECTIONS = [
  * way the approver can no longer edit — there is no post-finalize correction
  * path. The rating is shown as a separate, human-set field (never a section).
  */
-export function ApproverFinalized({ data }: { data: Workspace }) {
+export function ApproverFinalized({
+  data,
+  labels,
+  cycleName,
+}: {
+  data: Workspace;
+  labels: RoleLabels;
+  cycleName: string | null;
+}) {
   const isLocked = data.status === "locked";
   const firstName = data.subjectName.split(" ")[0] || "They";
   const sections = data.narrative;
@@ -45,8 +54,9 @@ export function ApproverFinalized({ data }: { data: Workspace }) {
         <div className="awc-body">
           <div className="awc-top">
             <h1 className="awc-name">{data.subjectName}</h1>
+            <span className="role-chip sm">{labels.subject}</span>
           </div>
-          {data.department ? <div className="awc-meta">{data.department}</div> : null}
+          <div className="awc-meta">{[data.department, cycleName].filter(Boolean).join(" · ")}</div>
         </div>
       </div>
 

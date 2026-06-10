@@ -22,6 +22,40 @@ export const REQUIRED_PEER_PROMPT_IDS = PEER_PROMPTS.filter((p) => !p.optional).
 
 export type PeerAnswers = Record<string, string>;
 
+/** Short calendar date, e.g. "Jun 12" — matches the design's deadline strings. */
+export function shortDate(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Whole days from now to the deadline (rounded up), null when undated. */
+export function daysLeft(deadlineAt: string | null): number | null {
+  if (!deadlineAt) return null;
+  return Math.ceil((new Date(deadlineAt).getTime() - Date.now()) / 86_400_000);
+}
+
+/**
+ * Urgency tint, ported verbatim from the design's deadlineClass: closed when
+ * past, the WARNING tint (default `.deadline`, empty class) when <= 3 days out,
+ * `calm` otherwise. (Fixes the form's previously hard-coded 'calm'.)
+ */
+export function deadlineClass(d: number | null): string {
+  if (d === null) return "calm";
+  if (d < 0) return "closed";
+  if (d <= 3) return "";
+  return "calm";
+}
+
+/** Deadline copy, ported verbatim from the design's deadlineText (date, not days-only). */
+export function deadlineText(deadlineAt: string | null): string {
+  const d = daysLeft(deadlineAt);
+  const date = shortDate(deadlineAt);
+  if (d === null) return "No deadline set";
+  if (d < 0) return `Closed ${date}`;
+  if (d === 0) return `Due today · ${date}`;
+  return `Due ${date} · ${d} ${d === 1 ? "day" : "days"} left`;
+}
+
 export interface PeerAssignment {
   reviewId: string;
   subjectName: string;

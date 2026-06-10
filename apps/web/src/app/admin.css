@@ -11,7 +11,7 @@
 .admin-tab.active { color: var(--blue-deep); border-bottom-color: var(--blue); }
 
 /* ---- MONITORING DASHBOARD ---- */
-.mon-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 20px; background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-card); margin-bottom: 18px; box-shadow: var(--shadow-sm); }
+.mon-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 20px; background: var(--ambient-stripes), var(--hero-gradient); border: 1px solid var(--hairline); border-radius: var(--r-card); margin-bottom: 18px; }
 .mon-head .mh-body { flex: 1; min-width: 0; }
 .mon-head .mh-title { font-family: var(--font-h); font-weight: 600; font-size: 19px; letter-spacing: -0.01em; color: var(--ink-1); margin: 0; }
 .mon-head .mh-meta { font-family: var(--font-b); font-size: 13px; color: var(--ink-2); margin-top: 3px; }
@@ -57,11 +57,19 @@
 .dropzone p { font-family: var(--font-b); font-size: 13.5px; color: var(--ink-2); margin: 0; max-width: 40ch; }
 .dropzone .dz-formats { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); }
 
+.csv-file { display: flex; align-items: center; gap: 13px; padding: 14px 16px; background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-card); box-shadow: var(--shadow-sm); }
+.csv-file .cf-ico { width: 40px; height: 40px; border-radius: 11px; background: var(--paper-sunken); color: var(--blue-deep); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.csv-file .cf-body { flex: 1; min-width: 0; }
+.csv-file .cf-name { font-family: var(--font-b); font-weight: 600; font-size: 14px; color: var(--ink-1); }
+.csv-file .cf-meta { font-family: var(--font-b); font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+
 .validating { display: flex; align-items: center; gap: 13px; padding: 18px; background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-card); }
 .validating .v-body { flex: 1; }
 .validating .v-title { font-family: var(--font-b); font-weight: 600; font-size: 14px; color: var(--ink-1); }
 .validating .v-bar { height: 7px; border-radius: 999px; background: var(--paper-sunken); overflow: hidden; margin-top: 9px; }
-.validating .v-fill { height: 100%; width: 64%; background: var(--blue); border-radius: 999px; }
+.validating .v-fill { height: 100%; width: 64%; background: var(--blue); border-radius: 999px; animation: vmove 1.2s var(--ease) infinite; }
+@keyframes vmove { 0% { width: 18%; } 50% { width: 78%; } 100% { width: 18%; } }
+@media (prefers-reduced-motion: reduce) { .validating .v-fill { animation: none; width: 64%; } }
 
 .import-summary { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: var(--r-card); margin-bottom: 18px; border: 1px solid transparent; }
 .import-summary.ok { background: var(--tint-blue); border-color: rgba(0,134,255,0.22); }
@@ -130,3 +138,12 @@
 .ac-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 14px; }
 .ac-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 560px) { .ac-fields { grid-template-columns: 1fr; } .ac-head { flex-wrap: wrap; } }
+
+/* ---- REVIEW-ACCESS GRANT LIST (ported verbatim from design approver.css —
+   shared with the nominations review list; not yet present in any app area CSS) ---- */
+.nom-review-list { display: flex; flex-direction: column; gap: 2px; }
+.nom-review-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--hairline); }
+.nom-review-row:last-child { border-bottom: none; }
+.nrr-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.nrr-name { font-family: var(--font-b); font-weight: 600; font-size: 14px; color: var(--ink-1); }
+.nrr-rel { font-family: var(--font-b); font-size: 12.5px; color: var(--ink-2); }

@@ -253,8 +253,11 @@
 .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 @media (max-width: 520px) { .hub-grid { grid-template-columns: 1fr; } }
 
-/* Task card */
-.task-card { display: flex; flex-direction: column; }
+/* Task card — the live hub wraps the card in a Next <Link> (an <a>), where the
+   prototype used a <div role="button">. Reset the UA anchor underline + color so
+   the card text matches the comp (no underlined title / meta / CTA). */
+.task-card { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+.task-card:hover, .task-card:focus, .task-card:focus-visible { text-decoration: none; }
 .task-card .card-head { margin-bottom: 12px; }
 .task-title { font-family: var(--font-h); font-weight: 600; font-size: 16px; letter-spacing: -0.01em; color: var(--ink-1); margin: 0 0 5px; }
 .task-meta { font-family: var(--font-b); font-size: 13px; color: var(--ink-2); margin: 0; }

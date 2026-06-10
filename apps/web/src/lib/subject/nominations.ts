@@ -15,6 +15,7 @@ export interface NominationData {
   status: NominationStatus;
   selectedIds: string[];
   candidates: Candidate[];
+  managerNote: string | null;
   min: number;
   max: number;
 }
@@ -31,7 +32,7 @@ export async function getNominationData(): Promise<NominationData | null> {
   const [{ data: cand }, { data: noms }, { data: roster }, { data: minVal }, { data: maxVal }] =
     await Promise.all([
       supabase.from("nomination_candidates").select("candidate_account_id, display_name, department").eq("cycle_id", cycleId),
-      supabase.from("nominations").select("nominee_account_id, status").eq("cycle_id", cycleId),
+      supabase.from("nominations").select("nominee_account_id, status, manager_note").eq("cycle_id", cycleId),
       supabase.from("rosters").select("id").eq("cycle_id", cycleId).maybeSingle(),
       supabase.schema("app").rpc("effective_threshold", { p_cycle: cycleId }),
       supabase.schema("app").rpc("effective_setting", { p_cycle: cycleId, p_key: "maxPeerNominations" }),
@@ -43,6 +44,10 @@ export async function getNominationData(): Promise<NominationData | null> {
   else if (nomRows.some((n) => n.status === "changes_requested")) nominationStatus = "changes_requested";
   else if (nomRows.length > 0) nominationStatus = "pending";
 
+  const managerNote = (nomRows.find((n) => (n.manager_note as string | null)?.trim())?.manager_note as
+    | string
+    | null) ?? null;
+
   return {
     reviewId: status.review_id as string,
     cycleId,
@@ -53,6 +58,7 @@ export async function getNominationData(): Promise<NominationData | null> {
       name: c.display_name as string,
       department: (c.department as string | null) ?? null,
     })),
+    managerNote,
     min: typeof minVal === "number" ? minVal : 3,
     max: maxVal ? Number.parseInt(maxVal as unknown as string, 10) || 5 : 5,
   };

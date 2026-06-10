@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { Avatar } from "@/components/atoms";
+import { Avatar, RoleLabel } from "@/components/atoms";
 import { IcoArrowRight, IcoCheckCircle, IcoPeer } from "@/components/atoms/icons";
-import { RoleLabel } from "@/lib/labels/RoleLabelProvider";
+import type { RoleLabels } from "@/lib/labels/roleLabel";
 import type { NominationSetRow } from "@/lib/approver/nominations";
 
-export function NominationQueue({ items }: { items: NominationSetRow[] }) {
+// The underlying configurable token behind the tenant role word.
+const SUBJECT_TOKEN = "subject_label";
+
+export function NominationQueue({ items, labels }: { items: NominationSetRow[]; labels: RoleLabels }) {
   const pending = items.filter((n) => n.status === "pending");
 
   return (
@@ -18,8 +21,8 @@ export function NominationQueue({ items }: { items: NominationSetRow[] }) {
             <h1>Approve peer nominations</h1>
           </div>
           <p className="ph-sub">
-            Each of your <RoleLabel role="subject" plural /> has nominated who they&apos;d like feedback from. Approve
-            the list, or send it back with a note.
+            Each of your <RoleLabel label={labels.subject} token="subject_label" plural /> has nominated who they&apos;d
+            like feedback from. Approve the list, or send it back with a note.
           </p>
         </div>
       </div>
@@ -32,8 +35,13 @@ export function NominationQueue({ items }: { items: NominationSetRow[] }) {
               <div className="aq-row-main">
                 <div className="aq-row-top">
                   <span className="aq-row-name">{n.subjectName}</span>
+                  <span className="role-chip sm">
+                    {labels.subject}
+                    <span className="tok">{`{${SUBJECT_TOKEN}}`}</span>
+                  </span>
                 </div>
                 <div className="aq-row-meta">
+                  {n.department ? <span className="am">{n.department}</span> : null}
                   <span className="am">
                     <IcoPeer s={13} sw={1.7} /> {n.nomineeCount} nominated
                   </span>

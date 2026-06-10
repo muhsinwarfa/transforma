@@ -5,6 +5,8 @@ export interface NominationSetRow {
   cycleId: string;
   employeeId: string;
   subjectName: string;
+  /** subject's roster department (for the queue row meta) */
+  department: string | null;
   /** set_status from nomination_sets (the whole set is kept uniform) */
   status: string;
   nomineeCount: number;
@@ -39,10 +41,28 @@ export async function getNominationQueue(): Promise<NominationSetRow[]> {
   const { data } = await supabase
     .from("nomination_sets")
     .select("cycle_id, employee_id, subject_name, set_status, nominee_count");
-  return (data ?? []).map((r) => ({
+  const rows = data ?? [];
+
+  // The set view carries no department; resolve it from `roster_members` keyed on
+  // the queue's own subject ids (the approver has a roster_members read for their
+  // reports). Keyed on ids already surfaced ⇒ nothing cross-tenant rides in.
+  const ids = rows.map((r) => r.employee_id as string);
+  const deptOf = new Map<string, string | null>();
+  if (ids.length > 0) {
+    const { data: members } = await supabase
+      .from("roster_members")
+      .select("account_id, department")
+      .in("account_id", ids);
+    for (const m of members ?? []) {
+      deptOf.set(m.account_id as string, (m.department as string | null) ?? null);
+    }
+  }
+
+  return rows.map((r) => ({
     cycleId: r.cycle_id as string,
     employeeId: r.employee_id as string,
     subjectName: r.subject_name as string,
+    department: deptOf.get(r.employee_id as string) ?? null,
     status: r.set_status as string,
     nomineeCount: (r.nominee_count as number) ?? 0,
   }));

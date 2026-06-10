@@ -1,7 +1,10 @@
 "use client";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { IcoClock, IcoClose, IcoEdit, IcoInfo, IcoPeer, IcoSettings, IcoShield, IcoSpinner } from "@/components/atoms/icons";
+import { usePathname, useRouter } from "next/navigation";
+import { useToast } from "@/components/Toast";
+import { Avatar } from "@/components/atoms";
+import { IcoClock, IcoClose, IcoInfo, IcoRoster, IcoSettings, IcoShield, IcoSpinner } from "@/components/atoms/icons";
+import { IcoSwitch } from "@/components/admin/icons";
 import {
   extendDeadline,
   grantReviewContentAdmin,
@@ -14,19 +17,25 @@ import {
 } from "@/app/(app)/admin/actions";
 import type { CycleDefaults, Participant, RoleLabels } from "@/lib/admin/data";
 import type { ReviewContentAccess } from "@/lib/admin/content";
-import { RoleLabel } from "@/lib/labels/RoleLabelProvider";
 
 type Tab = "labels" | "defaults" | "access" | "actions";
 type StructuralRole = "subject" | "peer" | "approver" | "admin";
 
-// The four FIXED structural roles (the system always reasons about these) + a
-// description. These are structural identifiers, NOT tenant labels — the label is
-// the editable value beside each.
-const ROLE_META: { role: StructuralRole; name: string; desc: string }[] = [
-  { role: "subject", name: "Subject", desc: "The person being reviewed." },
-  { role: "peer", name: "Peer", desc: "Someone giving feedback on a subject." },
-  { role: "approver", name: "Approver", desc: "Reviews, edits, decides, and locks a review." },
-  { role: "admin", name: "Administrator", desc: "Sets up cycles, the roster, and monitors cycle health." },
+// The four FIXED structural roles (the system always reasons about these) + the
+// underlying token surfaced by the annotation layer + a description. These are
+// structural identifiers, NOT tenant labels — the label is the editable value.
+const ROLE_META: { role: StructuralRole; name: string; token: string; desc: string }[] = [
+  { role: "subject", name: "Subject", token: "subject_label", desc: "The person being reviewed." },
+  { role: "peer", name: "Peer", token: "peer_label", desc: "Someone giving feedback on a subject." },
+  { role: "approver", name: "Approver", token: "approver_label", desc: "Reviews, edits, decides, and locks a review." },
+  { role: "admin", name: "Administrator", token: "admin_label", desc: "Sets up cycles, uploads the roster, monitors cycle health." },
+];
+
+const CYCLE_DEFAULT_META: { key: keyof CycleDefaults; label: string; unit: string; desc: string; min: number }[] = [
+  { key: "feedbackDeadlineDays", label: "Feedback deadline", unit: "after the cycle opens", desc: "How long self-review and peer feedback stay open.", min: 1 },
+  { key: "peerAnonymityThreshold", label: "Minimum peers", unit: "per person", desc: "Fewest peer responses before a review can be finalized.", min: 3 },
+  { key: "maxPeerNominations", label: "Max peer nominations", unit: "per person", desc: "Most peers a person may nominate.", min: 1 },
+  { key: "ackWindowDays", label: "Acknowledgement window", unit: "after a review is shared", desc: "How long someone has to acknowledge before a review locks automatically.", min: 1 },
 ];
 
 export function SettingsPanel({
@@ -34,19 +43,29 @@ export function SettingsPanel({
   defaults,
   participants,
   reviewAccess,
+  adminLabel,
+  initialTab,
 }: {
   labels: RoleLabels;
   defaults: CycleDefaults;
   participants: Participant[];
   reviewAccess: ReviewContentAccess;
+  adminLabel: string;
+  initialTab: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("labels");
+  const router = useRouter();
+  const pathname = usePathname();
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const go = (t: Tab) => {
+    setTab(t);
+    router.replace(`${pathname}?tab=${t}`, { scroll: false });
+  };
   return (
     <div className="tf-page">
       <div className="page-header">
         <div className="ph-left">
           <div className="ph-eyebrow">
-            <span className="t-label">Administrator</span>
+            <span className="t-label">{adminLabel}</span>
           </div>
           <div className="ph-title">
             <h1>Settings &amp; cycle management</h1>
@@ -56,17 +75,17 @@ export function SettingsPanel({
       </div>
 
       <div className="admin-tabs" role="tablist">
-        <button role="tab" className={`admin-tab ${tab === "labels" ? "active" : ""}`} aria-selected={tab === "labels"} onClick={() => setTab("labels")}>
-          <IcoPeer s={17} /> Role labels
+        <button role="tab" className={`admin-tab ${tab === "labels" ? "active" : ""}`} aria-selected={tab === "labels"} onClick={() => go("labels")}>
+          <IcoRoster s={17} /> Role labels
         </button>
-        <button role="tab" className={`admin-tab ${tab === "defaults" ? "active" : ""}`} aria-selected={tab === "defaults"} onClick={() => setTab("defaults")}>
+        <button role="tab" className={`admin-tab ${tab === "defaults" ? "active" : ""}`} aria-selected={tab === "defaults"} onClick={() => go("defaults")}>
           <IcoSettings s={17} /> Defaults
         </button>
-        <button role="tab" className={`admin-tab ${tab === "access" ? "active" : ""}`} aria-selected={tab === "access"} onClick={() => setTab("access")}>
+        <button role="tab" className={`admin-tab ${tab === "access" ? "active" : ""}`} aria-selected={tab === "access"} onClick={() => go("access")}>
           <IcoShield s={17} /> Review access
         </button>
-        <button role="tab" className={`admin-tab ${tab === "actions" ? "active" : ""}`} aria-selected={tab === "actions"} onClick={() => setTab("actions")}>
-          <IcoEdit s={17} /> Mid-cycle actions
+        <button role="tab" className={`admin-tab ${tab === "actions" ? "active" : ""}`} aria-selected={tab === "actions"} onClick={() => go("actions")}>
+          <IcoSwitch s={17} /> Mid-cycle actions
         </button>
       </div>
 
@@ -79,46 +98,48 @@ export function SettingsPanel({
 }
 
 function RoleLabelsForm({ seed }: { seed: RoleLabels }) {
+  const toast = useToast();
+  const router = useRouter();
   const [labels, setLabels] = useState<RoleLabels>(seed);
   const [dirty, setDirty] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const router = useRouter();
   const set = (role: StructuralRole, v: string) => {
     setLabels((l) => ({ ...l, [role]: v }));
     setDirty(true);
   };
   const save = () => {
-    setMsg(null);
     start(async () => {
       try {
         await saveRoleLabels(labels);
         setDirty(false);
-        setMsg("Role labels updated across the workspace.");
+        toast("Role labels updated across the workspace.");
         router.refresh();
       } catch (e) {
-        setMsg(e instanceof Error ? e.message : "Couldn't save labels.");
+        toast(e instanceof Error ? e.message : "Couldn't save labels.", { kind: "warn" });
       }
     });
   };
   return (
     <div className="subj-col" style={{ margin: 0 }}>
       <p className="t-body-sm" style={{ marginBottom: 16 }}>
-        Every role word people see is yours to set. The system always reasons about the structural role — these labels
-        just change what&apos;s shown.
+        Every role word people see in Transforma is yours to set. The system always reasons about the structural role —
+        these labels just change what&apos;s shown.
       </p>
       <div className="card pad">
         <div className="label-config">
           {ROLE_META.map((r) => (
             <div className="label-row" key={r.role}>
               <div className="lr-struct">
-                <span className="lr-role">{r.name}</span>
+                <span className="lr-role">
+                  {r.name}
+                  <span className="tok">{`{${r.token}}`}</span>
+                </span>
                 <div className="lr-desc">{r.desc}</div>
                 <span className="lr-struct-token">structural role · fixed</span>
               </div>
               <div>
                 <label className="field-label sr-only" htmlFor={`lbl-${r.role}`}>
-                  Label for {r.name}
+                  Label for {r.role}
                 </label>
                 <input
                   id={`lbl-${r.role}`}
@@ -138,59 +159,63 @@ function RoleLabelsForm({ seed }: { seed: RoleLabels }) {
         <button className="btn btn-primary" disabled={!dirty || pending} onClick={save}>
           {pending ? <IcoSpinner s={17} /> : null} Save labels
         </button>
-        {msg ? <span className="t-body-sm" style={{ color: "var(--ink-3)" }}>{msg}</span> : null}
+        {dirty ? <span className="t-body-sm" style={{ color: "var(--ink-3)" }}>Unsaved changes</span> : null}
+      </div>
+      <div className="agg-note" style={{ marginTop: 18 }}>
+        <IcoInfo s={15} />
+        <span>
+          Changing a label updates it everywhere instantly — navigation, task cards, and review screens all read from
+          these settings.
+        </span>
       </div>
     </div>
   );
 }
 
 function DefaultsForm({ seed }: { seed: CycleDefaults }) {
+  const toast = useToast();
   const [d, setD] = useState<CycleDefaults>(seed);
   const [dirty, setDirty] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const fields: { key: keyof CycleDefaults; label: string; unit: string; desc: string; min: number }[] = [
-    { key: "feedbackDeadlineDays", label: "Feedback deadline", unit: "days after open", desc: "How long self-review and peer feedback stay open.", min: 1 },
-    { key: "peerAnonymityThreshold", label: "Anonymity floor", unit: "peers (min 3)", desc: "Fewest peer responses before peer feedback is used. Hard minimum of 3.", min: 3 },
-    { key: "maxPeerNominations", label: "Max nominations", unit: "per person", desc: "Most peers a person may nominate.", min: 1 },
-    { key: "ackWindowDays", label: "Acknowledgement window", unit: "days", desc: "How long someone has to acknowledge before a review locks automatically.", min: 1 },
-  ];
   const set = (k: keyof CycleDefaults, v: number) => {
     setD((s) => ({ ...s, [k]: v }));
     setDirty(true);
   };
   const save = () => {
-    setMsg(null);
     start(async () => {
       try {
         await saveCycleDefaults(d);
         setDirty(false);
-        setMsg("Company defaults saved.");
+        toast("Company defaults saved.");
       } catch (e) {
-        setMsg(e instanceof Error ? e.message : "Couldn't save defaults.");
+        toast(e instanceof Error ? e.message : "Couldn't save defaults.", { kind: "warn" });
       }
     });
   };
   return (
     <div className="subj-col" style={{ margin: 0 }}>
-      <p className="t-body-sm" style={{ marginBottom: 16 }}>These apply to every cycle by default. Any individual cycle can override them in its own setup.</p>
+      <p className="t-body-sm" style={{ marginBottom: 16 }}>
+        These apply to every cycle by default. Any individual cycle can override them in its own Setup.
+      </p>
       <div className="card pad">
         <div className="label-config">
-          {fields.map((f) => (
+          {CYCLE_DEFAULT_META.map((f) => (
             <div className="label-row" key={f.key}>
               <div className="lr-struct">
                 <span className="lr-role">{f.label}</span>
                 <div className="lr-desc">{f.desc}</div>
               </div>
-              <div className="def-input">
-                <input
-                  className="input is-filled"
-                  type="number"
-                  min={f.min}
-                  value={d[f.key]}
-                  onChange={(e) => set(f.key, Number.parseInt(e.target.value, 10) || f.min)}
-                />
-                <span className="def-unit">{f.unit}</span>
+              <div>
+                <div className="def-input">
+                  <input
+                    className="input is-filled"
+                    type="number"
+                    min={f.min}
+                    value={d[f.key]}
+                    onChange={(e) => set(f.key, Number.parseInt(e.target.value, 10) || f.min)}
+                  />
+                  <span className="def-unit">{f.unit}</span>
+                </div>
               </div>
             </div>
           ))}
@@ -200,97 +225,111 @@ function DefaultsForm({ seed }: { seed: CycleDefaults }) {
         <button className="btn btn-primary" disabled={!dirty || pending} onClick={save}>
           {pending ? <IcoSpinner s={17} /> : null} Save defaults
         </button>
-        {msg ? <span className="t-body-sm" style={{ color: "var(--ink-3)" }}>{msg}</span> : null}
+        {dirty ? <span className="t-body-sm" style={{ color: "var(--ink-3)" }}>Unsaved changes</span> : null}
       </div>
     </div>
   );
 }
 
+// A2 · Review access — company switch + per-admin grants. Over the EXISTING
+// audited actions (saveAdminContentAccess / grant / revoke). Pixel-match only.
 function ReviewAccessForm({ seed }: { seed: ReviewContentAccess }) {
   const router = useRouter();
+  const toast = useToast();
   const [enabled, setEnabled] = useState(seed.enabled);
   const [admins, setAdmins] = useState(seed.admins);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
 
   const toggle = () => {
     const next = !enabled;
     setEnabled(next);
-    setMsg(null);
     start(async () => {
       try {
         await saveAdminContentAccess(next);
-        setMsg(next ? "Review content access is on." : "Review content access is off for everyone.");
+        toast(next ? "Individual review access turned on." : "Individual review access turned off.");
         router.refresh();
       } catch (e) {
         setEnabled(!next);
-        setMsg(e instanceof Error ? e.message : "Couldn't update the setting.");
+        toast(e instanceof Error ? e.message : "Couldn't update the setting.", { kind: "warn" });
       }
     });
   };
-  const setGrant = (accountId: string, grant: boolean) => {
-    setMsg(null);
+  const toggleGrant = (accountId: string, name: string, grant: boolean) => {
     start(async () => {
       try {
         if (grant) await grantReviewContentAdmin(accountId);
         else await revokeReviewContentAdmin(accountId);
         setAdmins((a) => a.map((x) => (x.accountId === accountId ? { ...x, granted: grant } : x)));
+        toast(grant ? `Review access granted to ${name}.` : `Review access revoked for ${name}.`);
         router.refresh();
       } catch (e) {
-        setMsg(e instanceof Error ? e.message : "Couldn't update access.");
+        toast(e instanceof Error ? e.message : "Couldn't update access.", { kind: "warn" });
       }
     });
   };
 
   return (
     <div className="subj-col" style={{ margin: 0 }}>
-      <p className="t-body-sm" style={{ marginBottom: 16 }}>
-        Choose whether <RoleLabel role="admin" plural /> can open individual reviews for oversight, and exactly who.
-        Opening a review is always recorded in the audit log, and peer feedback is never shown. This is read-only — no
-        one here can edit, rate, or finalize a review.
-      </p>
       <div className="card pad" style={{ marginBottom: 16 }}>
-        <div className="label-row">
-          <div className="lr-struct">
-            <span className="lr-role">Review content access</span>
-            <div className="lr-desc">When off, no one can open review content — oversight stays at cycle-level counts only.</div>
-          </div>
-          <button className={`btn ${enabled ? "btn-primary" : "btn-secondary"}`} disabled={pending} onClick={toggle}>
-            {pending ? <IcoSpinner s={17} /> : null} {enabled ? "On" : "Off"}
-          </button>
+        <label className="tf-menu-toggle" style={{ padding: 0 }}>
+          <span>
+            <span className="tf-mt-title">Allow individual review access</span>
+            <span className="tf-mt-sub">
+              When off, no administrator can read individual review content, regardless of grants. Cycle-level counts
+              stay available.
+            </span>
+          </span>
+          <input type="checkbox" checked={enabled} onChange={toggle} />
+          <span className="tf-switch" aria-hidden="true" />
+        </label>
+      </div>
+
+      <div className="card pad" style={{ opacity: enabled ? 1 : 0.55 }}>
+        <h2 className="t-h3" style={{ marginBottom: 4 }}>
+          Who can read reviews
+        </h2>
+        <p className="t-body-sm" style={{ marginBottom: 14, maxWidth: "64ch" }}>
+          Review access is a separate capability from the administrator role — holding admin alone grants nothing. Every
+          read is recorded in the audit log.
+        </p>
+        <div className="nom-review-list">
+          {admins.map((a) => (
+            <div className="nom-review-row" key={a.accountId} style={{ gap: 12 }}>
+              <Avatar name={a.name} cls="sm" />
+              <div className="nrr-main" style={{ flex: 1 }}>
+                <span className="nrr-name">{a.name}</span>
+                <span className="nrr-rel">{a.email}</span>
+              </div>
+              {a.granted ? (
+                <button className="btn btn-destructive sm" disabled={!enabled} onClick={() => toggleGrant(a.accountId, a.name, false)}>
+                  Revoke
+                </button>
+              ) : (
+                <button className="btn btn-outline sm" disabled={!enabled} onClick={() => toggleGrant(a.accountId, a.name, true)}>
+                  Grant
+                </button>
+              )}
+            </div>
+          ))}
+          {admins.length === 0 ? (
+            <div className="state-block">
+              <span className="state-glyph">
+                <IcoRoster s={26} />
+              </span>
+              <h3>No administrators yet</h3>
+              <p>When other administrators join this workspace, you can grant them review access here.</p>
+            </div>
+          ) : null}
         </div>
       </div>
-      <div className="card pad">
-        <h3 style={{ marginTop: 0 }}>Who can open reviews</h3>
-        {admins.length === 0 ? (
-          <p className="t-body-sm" style={{ color: "var(--ink-3)" }}>No administrators to grant yet.</p>
-        ) : (
-          <ul className="rev-list">
-            {admins.map((a) => (
-              <li key={a.accountId}>
-                <div className="rev-row" style={{ cursor: "default" }}>
-                  <span className="rr-name">{a.name}</span>
-                  <span className="rr-dept">{a.granted ? "Has access" : "No access"}</span>
-                  <span className="rr-status">
-                    <button
-                      className={`btn ${a.granted ? "btn-ghost" : "btn-secondary"} sm`}
-                      disabled={pending}
-                      onClick={() => setGrant(a.accountId, !a.granted)}
-                    >
-                      {a.granted ? "Revoke" : "Grant"}
-                    </button>
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+
+      <div className="agg-note" style={{ marginTop: 16 }}>
+        <IcoShield s={15} />
+        <span>
+          Peer feedback is never readable here or anywhere — this capability covers the finished review, the self-review,
+          and the employee&apos;s response only.
+        </span>
       </div>
-      {msg ? (
-        <p className="t-body-sm" style={{ color: "var(--ink-3)", marginTop: 12 }}>
-          {msg}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -299,7 +338,9 @@ function MidCycleActions({ participants }: { participants: Participant[] }) {
   const active = participants.filter((p) => !p.withdrawn);
   return (
     <div className="subj-col" style={{ margin: 0 }}>
-      <p className="t-body-sm" style={{ marginBottom: 16 }}>Targeted changes to a single person or review, without disrupting the rest of the cycle. Each is recorded in the audit log.</p>
+      <p className="t-body-sm" style={{ marginBottom: 16 }}>
+        Targeted changes to a single person or review, without disrupting the rest of the cycle.
+      </p>
       <div className="action-list">
         <ReassignCard participants={active} />
         <ExtendCard participants={active} />
@@ -344,17 +385,22 @@ function ActionShell({
 
 function ReassignCard({ participants }: { participants: Participant[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [subject, setSubject] = useState("");
   const [approver, setApprover] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   return (
-    <ActionShell icon={<IcoEdit s={20} />} title="Reassign a review's approver" desc="Move one person's review to a different manager — for a manager change, leave, or conflict of interest.">
+    <ActionShell
+      icon={<IcoSwitch s={20} />}
+      title="Reassign a review's approver"
+      desc="Move one person's review to a different manager — for a manager change, leave, or a conflict of interest."
+    >
       {(close) => (
         <>
           <div className="ac-fields">
             <Picker label="Review for" value={subject} onChange={setSubject} participants={participants} />
-            <Picker label="New approver" value={approver} onChange={setApprover} participants={participants} />
+            <Picker label="New manager" value={approver} onChange={setApprover} participants={participants} />
           </div>
           {err ? <p className="field-msg" style={{ color: "var(--error)" }}>{err}</p> : null}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -367,16 +413,19 @@ function ReassignCard({ participants }: { participants: Participant[] }) {
                   try {
                     await reassignApprover(subject, approver);
                     close();
+                    toast("Review reassigned to a new manager.");
                     router.refresh();
                   } catch (e) {
-                    setErr(e instanceof Error ? e.message : "Couldn't reassign — the new approver may fail segregation of duties.");
+                    setErr(e instanceof Error ? e.message : "Couldn't reassign — the new manager may fail segregation of duties.");
                   }
                 });
               }}
             >
               {pending ? <IcoSpinner s={17} /> : null} Reassign
             </button>
-            <button className="btn btn-ghost" onClick={close} disabled={pending}>Cancel</button>
+            <button className="btn btn-ghost" onClick={close} disabled={pending}>
+              Cancel
+            </button>
           </div>
         </>
       )}
@@ -386,18 +435,23 @@ function ReassignCard({ participants }: { participants: Participant[] }) {
 
 function ExtendCard({ participants }: { participants: Participant[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [subject, setSubject] = useState("");
   const [date, setDate] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   return (
-    <ActionShell icon={<IcoClock s={20} />} title="Extend one person's deadline" desc="Give a single participant more time without moving the whole cycle.">
+    <ActionShell
+      icon={<IcoClock s={20} />}
+      title="Extend one person's deadline"
+      desc="Give a single participant more time without moving the whole cycle."
+    >
       {(close) => (
         <>
           <div className="ac-fields">
             <Picker label="Participant" value={subject} onChange={setSubject} participants={participants} />
             <div className="field">
-              <label className="field-label">New feedback deadline</label>
+              <label className="field-label">New deadline</label>
               <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
@@ -412,6 +466,7 @@ function ExtendCard({ participants }: { participants: Participant[] }) {
                   try {
                     await extendDeadline(subject, "feedback", new Date(date).toISOString());
                     close();
+                    toast("Deadline extended for this participant.");
                     router.refresh();
                   } catch (e) {
                     setErr(e instanceof Error ? e.message : "Couldn't extend the deadline.");
@@ -421,7 +476,9 @@ function ExtendCard({ participants }: { participants: Participant[] }) {
             >
               {pending ? <IcoSpinner s={17} /> : null} Extend deadline
             </button>
-            <button className="btn btn-ghost" onClick={close} disabled={pending}>Cancel</button>
+            <button className="btn btn-ghost" onClick={close} disabled={pending}>
+              Cancel
+            </button>
           </div>
         </>
       )}
@@ -431,6 +488,7 @@ function ExtendCard({ participants }: { participants: Participant[] }) {
 
 function WithdrawCard({ participants }: { participants: Participant[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [subject, setSubject] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -438,7 +496,7 @@ function WithdrawCard({ participants }: { participants: Participant[] }) {
     <ActionShell
       icon={<IcoClose s={20} />}
       title="Withdraw a departed person"
-      desc="Remove someone who has left. Their in-flight review is closed and their feedback is archived — no longer surfaced to anyone."
+      desc="Remove someone who has left from the cycle. Their pending tasks and any requests naming them are closed."
       danger
     >
       {(close) => (
@@ -449,7 +507,7 @@ function WithdrawCard({ participants }: { participants: Participant[] }) {
           {err ? <p className="field-msg" style={{ color: "var(--error)" }}>{err}</p> : null}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
-              className="btn btn-destructive"
+              className="btn btn-destructive solid"
               disabled={!subject || pending}
               onClick={() => {
                 setErr(null);
@@ -457,6 +515,7 @@ function WithdrawCard({ participants }: { participants: Participant[] }) {
                   try {
                     await withdrawSubject(subject);
                     close();
+                    toast("Participant withdrawn from the cycle.");
                     router.refresh();
                   } catch (e) {
                     setErr(e instanceof Error ? e.message : "Couldn't withdraw this participant.");
@@ -466,7 +525,9 @@ function WithdrawCard({ participants }: { participants: Participant[] }) {
             >
               {pending ? <IcoSpinner s={17} /> : null} Withdraw from cycle
             </button>
-            <button className="btn btn-ghost" onClick={close} disabled={pending}>Cancel</button>
+            <button className="btn btn-ghost" onClick={close} disabled={pending}>
+              Cancel
+            </button>
           </div>
         </>
       )}
@@ -488,17 +549,23 @@ function Picker({
   return (
     <div className="field">
       <label className="field-label">{label}</label>
-      <div className="select-wrap">
-        <select className={`select ${value ? "is-filled" : ""}`} value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Choose a participant…</option>
-          {participants.map((p) => (
-            <option key={p.accountId} value={p.accountId}>
-              {p.name}
-              {p.department ? ` · ${p.department}` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
+      <input
+        className="input"
+        list={`picker-${label.replace(/\s+/g, "-")}`}
+        value={value ? participants.find((p) => p.accountId === value)?.name ?? value : ""}
+        onChange={(e) => {
+          const match = participants.find((p) => p.name === e.target.value);
+          onChange(match ? match.accountId : "");
+        }}
+        placeholder={label.toLowerCase().includes("manager") ? "Search a manager…" : "Search a participant…"}
+      />
+      <datalist id={`picker-${label.replace(/\s+/g, "-")}`}>
+        {participants.map((p) => (
+          <option key={p.accountId} value={p.name}>
+            {p.department ?? ""}
+          </option>
+        ))}
+      </datalist>
     </div>
   );
 }
