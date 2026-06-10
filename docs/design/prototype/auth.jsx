@@ -70,7 +70,7 @@ function LoginScreen({ onSignIn, onForgot }) {
   const [busy, setBusy] = useStateA(false);
   const submit = () => { setBusy(true); setTimeout(onSignIn, 850); };
   return (
-    <AuthShell footer={<span>Trouble signing in? <a href="#" onClick={(e) => e.preventDefault()}>Contact your administrator</a></span>}>
+    <AuthShell>
       <h1 className="auth-h">Welcome back.</h1>
       <p className="auth-sub">Sign in to your review space.</p>
       <div className="auth-form">
@@ -201,10 +201,6 @@ function ForgotSent({ onReset, onBack }) {
       <div className="auth-status-mark ok"><IcoMail s={26} /></div>
       <h1 className="auth-h">Check your inbox.</h1>
       <p className="auth-sub">If an account exists for that email, a reset link is on its way. The link expires in 1 hour.</p>
-      <div className="auth-form">
-        {/* Demo shortcut: follow the link */}
-        <button type="button" className="btn btn-outline block" onClick={onReset}>Open the reset link (demo)</button>
-      </div>
     </AuthShell>
   );
 }

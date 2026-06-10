@@ -230,10 +230,10 @@ export interface ImportResult {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function importRoster(csvText: string): Promise<ImportResult> {
-  const session = await requireRole("admin");
-  const cycleId = await activeCycleId();
-
+// Pure parse + validation — performs NO writes. Shared by the read-only validate
+// pass and the committing import, so the two-phase preview and the commit apply
+// byte-identical rules. Returns imported:0 because nothing has been written.
+function parseAndValidateRoster(csvText: string): ImportResult {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length < 2) return { ok: false, imported: 0, errors: [{ row: 0, col: "file", msg: "No data rows found.", value: "" }], rows: [] };
 
@@ -246,7 +246,7 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
   const idx = Object.fromEntries(need.map((c) => [c, header.indexOf(c)]));
 
   const errors: RowError[] = [];
-  const rows: { name: string; email: string; role: string; manager: string; department: string }[] = [];
+  const rows: RosterRow[] = [];
   for (let i = 1; i < lines.length; i++) {
     const cells = lines[i]!.split(",").map((c) => c.trim());
     const name = cells[idx.name!] ?? "";
@@ -260,10 +260,33 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
       errors.push({ row: i + 1, col: "role", msg: `Role must be one of ${STRUCTURAL_ROLES.join("/")}.`, value: role });
     rows.push({ name, email, role, manager, department });
   }
-  // nothing is imported until EVERY row is valid (contract: validate-before-import)
+  // all-or-nothing: any bad row fails the whole file (contract: validate-before-import)
   if (errors.length > 0) return { ok: false, imported: 0, errors, rows: [] };
+  return { ok: true, imported: 0, errors: [], rows };
+}
 
-  for (const r of rows) {
+/**
+ * A3 phase 1 — read-only validation. Parses + checks every row and returns the
+ * preview WITHOUT touching the database. Nothing is written here; the import only
+ * happens when the admin confirms via importRoster.
+ */
+export async function validateRoster(csvText: string): Promise<ImportResult> {
+  await requireRole("admin");
+  return parseAndValidateRoster(csvText);
+}
+
+/**
+ * A3 phase 2 — the commit. Re-validates (defensive) then runs the existing
+ * all-or-nothing insert + roster_imported audit. The write path is unchanged; the
+ * read-only validate pass is simply split out in front of it.
+ */
+export async function importRoster(csvText: string): Promise<ImportResult> {
+  const session = await requireRole("admin");
+  const cycleId = await activeCycleId();
+  const v = parseAndValidateRoster(csvText);
+  if (!v.ok) return v;
+
+  for (const r of v.rows) {
     await pgQuery(
       `insert into roster_members (company_id, cycle_id, email, display_name, department, manager_ref, structural_roles)
          values ($1,$2,$3,$4,$5,$6, array[$7]::app_role[])
@@ -275,10 +298,10 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
   }
   await createServiceRoleClient()
     .schema("app")
-    .rpc("append_audit", { p_company: session.companyId, p_action: "roster_imported", p_actor: session.accountId, p_review: null, p_target: { count: rows.length } })
+    .rpc("append_audit", { p_company: session.companyId, p_action: "roster_imported", p_actor: session.accountId, p_review: null, p_target: { count: v.rows.length } })
     .then(undefined, () => {});
   revalidatePath("/admin/roster");
-  return { ok: true, imported: rows.length, errors: [], rows };
+  return { ok: true, imported: v.rows.length, errors: [], rows: v.rows };
 }
 
 // ── admin content access — the gated, audited read path (migrations 1800/1900) ─

@@ -8,7 +8,6 @@ import { Avatar } from "@/components/atoms";
 import { signOut } from "@/app/(auth)/auth-actions";
 import {
   IcoApprovals,
-  IcoBell,
   IcoChevDown,
   IcoClose,
   IcoCycles,
@@ -19,9 +18,7 @@ import {
   IcoPeer,
   IcoReview,
   IcoRoster,
-  IcoSearch,
   IcoSettings,
-  IcoUser,
   type IconProps,
 } from "@/components/atoms/icons";
 
@@ -173,9 +170,6 @@ function UserMenu({
           <div className="tf-menu-div" />
           <TokenToggle on={tokensOn} onChange={onToggleTokens} />
           <div className="tf-menu-div" />
-          <button className="tf-menu-item" role="menuitem" type="button">
-            <IcoUser s={18} /> Account settings
-          </button>
           <SignOutItem />
         </div>
       )}
@@ -350,13 +344,6 @@ export function AppShell({
             </div>
           </div>
           <div className="tf-header-right">
-            <button className="iconbtn" aria-label="Search" type="button">
-              <IcoSearch s={20} />
-            </button>
-            <button className="iconbtn" aria-label="Notifications" type="button">
-              <IcoBell s={20} />
-            </button>
-            <div className="tf-header-div" />
             <UserMenu
               user={user}
               roles={roles}

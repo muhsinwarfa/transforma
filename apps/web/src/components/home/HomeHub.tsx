@@ -1,32 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useState, type MouseEvent } from "react";
+import { useState } from "react";
 import type { StructuralRole } from "@transforma/db";
 import type { RoleLabels } from "@/lib/labels/roleLabel";
 import { StatusBadge } from "@/components/atoms";
-import { type IconProps, IcoArrowRight, IcoCheckCircle, IcoClock } from "@/components/atoms/icons";
-
-// Three-dot "More options" glyph — ported from the design icon set (icons.jsx
-// IcoMore). Defined locally because the shared atom set (Lane 0, frozen) does not
-// yet expose it; uses the same 24x24 / currentColor wrapper as every other icon.
-function IcoMore({ s = 22, sw = 1.7 }: IconProps) {
-  return (
-    <svg
-      width={s}
-      height={s}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={sw}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
+import { IcoArrowRight, IcoCheckCircle, IcoClock } from "@/components/atoms/icons";
 
 // The underlying configurable token behind each tenant role word (revealed by the
 // shell's "Show role tokens" toggle via the .tok / body.show-tokens CSS).
@@ -54,17 +32,10 @@ export interface HubGroup {
 }
 
 function TaskCard({ task }: { task: HubTask }) {
-  const swallow = (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
   return (
     <Link href={task.href} className="card pad task-card interactive">
       <div className="card-head">
         <StatusBadge status={task.status} sm />
-        <button className="iconbtn sm-icon" aria-label="More options" type="button" onClick={swallow}>
-          <IcoMore s={18} />
-        </button>
       </div>
       <h3 className="task-title">{task.title}</h3>
       <p className="task-meta">{task.meta}</p>

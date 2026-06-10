@@ -4,21 +4,13 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { Avatar } from "@/components/atoms";
 import { IcoAlert, IcoCheck, IcoDownload, IcoSpinner } from "@/components/atoms/icons";
-import { IcoCsv, IcoUpload } from "@/components/admin/icons";
-import { importRoster, type ImportResult, type RosterRow } from "@/app/(app)/admin/actions";
+import { IcoUpload } from "@/components/admin/icons";
+import { importRoster, validateRoster, type ImportResult, type RosterRow } from "@/app/(app)/admin/actions";
 
-type State = "idle" | "validating" | "success" | "error";
-
-// A clean sample the dropzone can "simulate" — every row valid.
-const SAMPLE_CLEAN = `name,email,role,manager,department
-Hodan Abdi,h.abdi@workmail.com,subject,amina.yusuf,Clinical Ops
-Maryan Noor,m.noor@workmail.com,subject,l.farah,Nursing
-Yusuf Ali,y.ali@workmail.com,subject,amina.yusuf,Clinical Ops`;
-
-// A sample with row-level problems — exercises the all-or-nothing reject path.
-const SAMPLE_ERRORS = `name,email,role,manager,department
-Deqa Osman,d.osman[at]workmail.com,subject,amina.yusuf,Clinical Ops
-Liban Farah,l.farah@workmail.com,reviewer,amina.yusuf,Nursing`;
+// A3 · two-phase roster import. The dropzone runs a READ-ONLY validate pass
+// (validateRoster → preview); nothing is written until the admin clicks
+// "Confirm & add to cycle", which runs the committing importRoster (insert + audit).
+type State = "idle" | "validating" | "preview" | "confirmed" | "error";
 
 const TEMPLATE = "name,email,role,manager,department\n";
 
@@ -44,28 +36,57 @@ export function RosterImport({
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<State>("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [, start] = useTransition();
+  const [csv, setCsv] = useState("");
+  const [pending, start] = useTransition();
 
-  const run = (csv: string) => {
-    setState("validating");
+  // Phase 1 — read-only validation. Writes nothing; renders the preview or errors.
+  const validate = (csvText: string) => {
+    setCsv(csvText);
     setResult(null);
+    setState("validating");
     start(async () => {
-      const r = await importRoster(csv);
+      const r = await validateRoster(csvText);
       setResult(r);
-      setState(r.ok ? "success" : "error");
-      if (r.ok) router.refresh();
+      setState(r.ok ? "preview" : "error");
+    });
+  };
+
+  // Phase 2 — the commit. The existing importRoster performs the insert + audit.
+  const commit = () => {
+    start(async () => {
+      try {
+        const r = await importRoster(csv);
+        setResult(r);
+        if (r.ok) {
+          setState("confirmed");
+          toast(`${r.imported} people imported to ${cycleName}.`);
+          router.refresh();
+        } else {
+          setState("error");
+        }
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Couldn't add the roster to the cycle.", { kind: "warn" });
+      }
     });
   };
 
   const onFile = (file: File | null) => {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => run(String(reader.result ?? ""));
+    reader.onload = () => validate(String(reader.result ?? ""));
     reader.readAsText(file);
+  };
+
+  const reset = () => {
+    setState("idle");
+    setResult(null);
+    setCsv("");
   };
 
   const errorReport = (errors: ImportResult["errors"]) =>
     "row,column,value,message\n" + errors.map((e) => `${e.row},${e.col},"${e.value}","${e.msg}"`).join("\n") + "\n";
+
+  const showUploadAnother = state === "preview" || state === "confirmed";
 
   return (
     <div className="tf-page">
@@ -81,9 +102,9 @@ export function RosterImport({
             Upload the participants for {cycleName} as a CSV. We&apos;ll validate every row before anything is imported.
           </p>
         </div>
-        {state === "success" ? (
+        {showUploadAnother ? (
           <div className="ph-actions">
-            <button className="btn btn-secondary" onClick={() => setState("idle")}>
+            <button className="btn btn-secondary" onClick={reset}>
               Upload another
             </button>
           </div>
@@ -109,13 +130,13 @@ export function RosterImport({
             <span className="dz-formats">roster.csv · max 5 MB</span>
           </button>
           <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-            <button className="btn btn-outline sm" onClick={() => run(SAMPLE_CLEAN)}>
-              <IcoCsv s={15} /> Simulate a clean file
-            </button>
-            <button className="btn btn-outline sm" onClick={() => run(SAMPLE_ERRORS)}>
-              <IcoAlert s={15} sw={1.9} /> Simulate a file with errors
-            </button>
-            <button className="btn btn-ghost sm" onClick={() => { download("roster-template.csv", TEMPLATE); toast("Template downloaded."); }}>
+            <button
+              className="btn btn-ghost sm"
+              onClick={() => {
+                download("roster-template.csv", TEMPLATE);
+                toast("Template downloaded.");
+              }}
+            >
               <IcoDownload s={15} /> Download CSV template
             </button>
           </div>
@@ -134,15 +155,26 @@ export function RosterImport({
         </div>
       ) : null}
 
-      {state === "success" && result?.ok ? (
+      {(state === "preview" || state === "confirmed") && result?.ok ? (
         <>
           <div className="import-summary ok">
             <span className="is-mark">
               <IcoCheck s={24} sw={2.4} />
             </span>
             <div>
-              <div className="is-title">{result.imported} participants imported</div>
-              <div className="is-sub">roster.csv · all rows valid · ready for {cycleName}</div>
+              {state === "confirmed" ? (
+                <>
+                  <div className="is-title">
+                    {result.imported} people imported to {cycleName}
+                  </div>
+                  <div className="is-sub">roster.csv · added to the cycle</div>
+                </>
+              ) : (
+                <>
+                  <div className="is-title">{result.rows.length} people ready to add</div>
+                  <div className="is-sub">roster.csv · all rows valid · review and confirm below</div>
+                </>
+              )}
             </div>
           </div>
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -178,14 +210,26 @@ export function RosterImport({
               </table>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-            <button
-              className="btn btn-primary"
-              onClick={() => toast(`${result.imported} participants added to the cycle.`)}
-            >
-              Confirm &amp; add to cycle
-            </button>
-          </div>
+          {state === "preview" ? (
+            <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+              <button className="btn btn-primary" onClick={commit} disabled={pending}>
+                {pending ? (
+                  <>
+                    <IcoSpinner s={16} /> Adding…
+                  </>
+                ) : (
+                  "Confirm & add to cycle"
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="notice info" style={{ marginTop: 16 }}>
+              <span className="n-ico">
+                <IcoCheck s={18} />
+              </span>
+              <span>Added to {cycleName}. Upload another file or head back to the cycle.</span>
+            </div>
+          )}
         </>
       ) : null}
 
@@ -219,12 +263,15 @@ export function RosterImport({
             ))}
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-            <button className="btn btn-primary" onClick={() => setState("idle")}>
+            <button className="btn btn-primary" onClick={reset}>
               <IcoUpload s={16} /> Re-upload corrected file
             </button>
             <button
               className="btn btn-ghost"
-              onClick={() => { download("roster-errors.csv", errorReport(result.errors)); toast("Error report downloaded."); }}
+              onClick={() => {
+                download("roster-errors.csv", errorReport(result.errors));
+                toast("Error report downloaded.");
+              }}
             >
               <IcoDownload s={16} /> Download error report
             </button>

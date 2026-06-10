@@ -117,7 +117,6 @@ function UserMenu({ roles, onSignOut, tokensOn, onToggleTokens }) {
             <span className="tf-switch" aria-hidden="true" />
           </label>
           <div className="tf-menu-div" />
-          <button className="tf-menu-item" role="menuitem"><IcoUser s={18} /> Account settings</button>
           <button className="tf-menu-item danger" role="menuitem" onClick={onSignOut}><IcoLogout s={18} /> Sign out</button>
         </div>
       )}
@@ -138,9 +137,6 @@ function AppHeader({ roles, onSignOut, tokensOn, onToggleTokens, onOpenDrawer })
         </div>
       </div>
       <div className="tf-header-right">
-        <button className="iconbtn" aria-label="Search"><IcoSearch s={20} /></button>
-        <button className="iconbtn" aria-label="Notifications" data-badge="3"><IcoBell s={20} /><span className="tf-bell-dot" /></button>
-        <div className="tf-header-div" />
         <UserMenu roles={roles} onSignOut={onSignOut} tokensOn={tokensOn} onToggleTokens={onToggleTokens} />
       </div>
     </header>

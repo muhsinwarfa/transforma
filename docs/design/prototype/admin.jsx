@@ -105,10 +105,18 @@ function CycleMonitor({ onToast }) {
 
 // ---- Cycle setup form ----
 function CycleSetup({ onToast }) {
-  const [name, setName] = useStateAd('H2 2026 Review');
+  const INIT = { name: 'H2 2026 Review', opens: 'Jul 1, 2026', closes: 'Jul 31, 2026', peers: '3–5', ack: '7 days', overrides: true };
+  const [name, setName] = useStateAd(INIT.name);
+  const [opens, setOpens] = useStateAd(INIT.opens);
+  const [closes, setCloses] = useStateAd(INIT.closes);
+  const [peers, setPeers] = useStateAd(INIT.peers);
+  const [ack, setAck] = useStateAd(INIT.ack);
+  const [overrides, setOverrides] = useStateAd(INIT.overrides);
   const [busy, setBusy] = useStateAd(false);
   const [starting, setStarting] = useStateAd(false);
   const [started, setStarted] = useStateAd(false);
+  // Honest Cancel: actually restore every field to the last-saved values.
+  const revert = () => { setName(INIT.name); setOpens(INIT.opens); setCloses(INIT.closes); setPeers(INIT.peers); setAck(INIT.ack); setOverrides(INIT.overrides); onToast('Reverted to your last saved settings.'); };
   return (
     <>
       <div className="card pad" style={{ marginBottom: 18 }}>
@@ -121,29 +129,29 @@ function CycleSetup({ onToast }) {
           </div>
           <div className="field">
             <label className="field-label" htmlFor="cs-open">Opens</label>
-            <input id="cs-open" className="input is-filled" type="text" defaultValue="Jul 1, 2026" />
+            <input id="cs-open" className="input is-filled" type="text" value={opens} onChange={(e) => setOpens(e.target.value)} />
           </div>
           <div className="field">
             <label className="field-label" htmlFor="cs-close">Closes</label>
-            <input id="cs-close" className="input is-filled" type="text" defaultValue="Jul 31, 2026" />
+            <input id="cs-close" className="input is-filled" type="text" value={closes} onChange={(e) => setCloses(e.target.value)} />
           </div>
           <div className="field">
             <label className="field-label" htmlFor="cs-peers">Peer feedback per person</label>
-            <div className="select-wrap"><select id="cs-peers" className="select is-filled" defaultValue="3–5"><option>2–3</option><option>3–5</option><option>Open</option></select><span className="chev"><IcoChevDown s={18} /></span></div>
+            <div className="select-wrap"><select id="cs-peers" className="select is-filled" value={peers} onChange={(e) => setPeers(e.target.value)}><option>2–3</option><option>3–5</option><option>Open</option></select><span className="chev"><IcoChevDown s={18} /></span></div>
           </div>
           <div className="field">
             <label className="field-label" htmlFor="cs-ack">Acknowledgement window</label>
-            <div className="select-wrap"><select id="cs-ack" className="select is-filled" defaultValue="7 days"><option>3 days</option><option>7 days</option><option>14 days</option></select><span className="chev"><IcoChevDown s={18} /></span></div>
+            <div className="select-wrap"><select id="cs-ack" className="select is-filled" value={ack} onChange={(e) => setAck(e.target.value)}><option>3 days</option><option>7 days</option><option>14 days</option></select><span className="chev"><IcoChevDown s={18} /></span></div>
           </div>
           <label className="ack-row full" style={{ marginTop: 4 }}>
-            <input type="checkbox" defaultChecked />
+            <input type="checkbox" checked={overrides} onChange={() => setOverrides((o) => !o)} />
             <span>This cycle overrides the company defaults above. Turn off to follow the company-wide settings.</span>
           </label>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={() => { setBusy(true); setTimeout(() => { setBusy(false); onToast('Cycle settings saved.'); }, 700); }} disabled={busy}>{busy ? <><IcoSpinner s={17} /> Saving…</> : 'Save cycle'}</button>
-        <button className="btn btn-ghost" onClick={() => onToast('Discarded changes.')}>Cancel</button>
+        <button className="btn btn-ghost" onClick={revert}>Cancel</button>
       </div>
 
       {/* A3 · Start cycle — idempotent roster kickoff */}
@@ -162,8 +170,11 @@ function CycleSetup({ onToast }) {
 // ROSTER — CSV import (idle → validating → success / error)
 // ============================================================
 function AdminRoster({ state, setState, onToast }) {
-  // state: 'idle' | 'validating' | 'success' | 'error'
+  // state: 'idle' | 'validating' | 'success' (read-only preview) | 'error'.
+  // `confirmed` flips the success state from the preview to the committed result.
+  const [confirmed, setConfirmed] = useStateAd(false);
   const startUpload = (outcome) => {
+    setConfirmed(false);
     setState('validating');
     setTimeout(() => setState(outcome), 1400);
   };
@@ -187,8 +198,6 @@ function AdminRoster({ state, setState, onToast }) {
             <span className="dz-formats">roster.csv · max 5 MB</span>
           </button>
           <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-            <button className="btn btn-outline sm" onClick={() => startUpload('success')}><IcoCsv s={15} /> Simulate a clean file</button>
-            <button className="btn btn-outline sm" onClick={() => startUpload('error')}><IcoAlert s={15} sw={1.9} /> Simulate a file with errors</button>
             <button className="btn btn-ghost sm" onClick={() => onToast('Template downloaded.')}><IcoDownload s={15} /> Download CSV template</button>
           </div>
         </>
@@ -209,8 +218,17 @@ function AdminRoster({ state, setState, onToast }) {
           <div className="import-summary ok">
             <span className="is-mark"><IcoCheck s={24} sw={2.4} /></span>
             <div>
-              <div className="is-title">{ROSTER_IMPORT.validRows} participants imported</div>
-              <div className="is-sub">roster.csv · all rows valid · ready for {TENANT.cycle}</div>
+              {confirmed ? (
+                <>
+                  <div className="is-title">{ROSTER_IMPORT.validRows} people imported to {TENANT.cycle}</div>
+                  <div className="is-sub">roster.csv · added to the cycle</div>
+                </>
+              ) : (
+                <>
+                  <div className="is-title">{ROSTER_IMPORT.validRows} people ready to add</div>
+                  <div className="is-sub">roster.csv · all rows valid · review and confirm below</div>
+                </>
+              )}
             </div>
           </div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -232,9 +250,16 @@ function AdminRoster({ state, setState, onToast }) {
               </table>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => onToast(`${ROSTER_IMPORT.validRows} participants added to the cycle.`)}>Confirm &amp; add to cycle</button>
-          </div>
+          {confirmed ? (
+            <div className="notice info" style={{ marginTop: 16 }}>
+              <span className="n-ico"><IcoCheck s={18} /></span>
+              <span>Added to {TENANT.cycle}. Upload another file or head back to the cycle.</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={() => { setConfirmed(true); onToast(`${ROSTER_IMPORT.validRows} people imported to ${TENANT.cycle}.`); }}>Confirm &amp; add to cycle</button>
+            </div>
+          )}
         </>
       )}
 

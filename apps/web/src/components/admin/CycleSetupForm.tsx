@@ -38,12 +38,23 @@ const ACK_OPTIONS: { label: string; days: number }[] = [
 export function CycleSetupForm({ seed }: { seed: CycleSetupData | null }) {
   const router = useRouter();
   const toast = useToast();
-  const [name, setName] = useState(seed?.name ?? "H2 2026 Review");
-  const [opens, setOpens] = useState(fmtDate(seed?.opensAt ?? null, "Jul 1, 2026"));
-  const [closes, setCloses] = useState(fmtDate(seed?.closesAt ?? null, "Jul 31, 2026"));
-  const [peerRange, setPeerRange] = useState(seed?.peerRange ?? "3–5");
-  const [ackDays, setAckDays] = useState(seed?.ackWindowDays ?? 7);
-  const [overrides, setOverrides] = useState(seed?.overridesCompanyDefaults ?? true);
+  // Last-saved values, recomputed from the seed prop each render. Cancel reverts
+  // the form to these (after a Save + router.refresh the seed updates, so Cancel
+  // always restores to whatever is actually persisted).
+  const initial = {
+    name: seed?.name ?? "H2 2026 Review",
+    opens: fmtDate(seed?.opensAt ?? null, "Jul 1, 2026"),
+    closes: fmtDate(seed?.closesAt ?? null, "Jul 31, 2026"),
+    peerRange: seed?.peerRange ?? "3–5",
+    ackDays: seed?.ackWindowDays ?? 7,
+    overrides: seed?.overridesCompanyDefaults ?? true,
+  };
+  const [name, setName] = useState(initial.name);
+  const [opens, setOpens] = useState(initial.opens);
+  const [closes, setCloses] = useState(initial.closes);
+  const [peerRange, setPeerRange] = useState(initial.peerRange);
+  const [ackDays, setAckDays] = useState(initial.ackDays);
+  const [overrides, setOverrides] = useState(initial.overrides);
 
   const [busy, start] = useTransition();
   const [starting, startStart] = useTransition();
@@ -66,6 +77,17 @@ export function CycleSetupForm({ seed }: { seed: CycleSetupData | null }) {
         toast(e instanceof Error ? e.message : "Couldn't save the cycle.", { kind: "warn" });
       }
     });
+  };
+
+  // Honest Cancel: actually restore every field to the last-saved values.
+  const revert = () => {
+    setName(initial.name);
+    setOpens(initial.opens);
+    setCloses(initial.closes);
+    setPeerRange(initial.peerRange);
+    setAckDays(initial.ackDays);
+    setOverrides(initial.overrides);
+    toast("Reverted to your last saved settings.");
   };
 
   return (
@@ -149,7 +171,7 @@ export function CycleSetupForm({ seed }: { seed: CycleSetupData | null }) {
             "Save cycle"
           )}
         </button>
-        <button className="btn btn-ghost" onClick={() => toast("Discarded changes.")} disabled={busy}>
+        <button className="btn btn-ghost" onClick={revert} disabled={busy}>
           Cancel
         </button>
       </div>

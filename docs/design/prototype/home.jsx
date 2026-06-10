@@ -8,7 +8,6 @@ function TaskCard({ task, onAct }) {
       onClick={onAct} onKeyDown={(e) => { if (e.key === 'Enter') onAct(); }}>
       <div className="card-head">
         <StatusBadge status={task.status} sm />
-        <button className="iconbtn sm-icon" aria-label="More options" onClick={(e) => e.stopPropagation()}><IcoMore s={18} /></button>
       </div>
       <h3 className="task-title">{task.title}</h3>
       <p className="task-meta">{task.meta}</p>

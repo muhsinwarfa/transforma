@@ -16,13 +16,7 @@ export function LoginForm() {
   const [pw, setPw] = useState("");
 
   return (
-    <AuthShell
-      footer={
-        <span>
-          Trouble signing in? <a href="mailto:">Contact your administrator</a>
-        </span>
-      }
-    >
+    <AuthShell>
       <h1 className="auth-h">Welcome back.</h1>
       <p className="auth-sub">Sign in to your review space.</p>
       <form action={action} className="auth-form">
