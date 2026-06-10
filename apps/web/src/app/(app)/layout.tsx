@@ -1,12 +1,17 @@
 import type { ReactNode } from "react";
+import type { StructuralRole } from "@transforma/db";
 import { ToastProvider } from "@/components/Toast";
 import { AppShell } from "@/components/shell/AppShell";
 import { loadSession } from "@/lib/auth/session";
 import { resolveLabels } from "@/lib/labels/roleLabel";
+import { getActiveCycle } from "@/lib/admin/data";
+import { getPeerAssignments } from "@/lib/peer/feedback";
+import { getApproverQueue } from "@/lib/approver/data";
+import { getNominationQueue } from "@/lib/approver/nominations";
+import { createRlsClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await loadSession();
-  const labels = await resolveLabels();
 
   if (!session) {
     // Sign-in / activation lands in PROC-01; until then this is the honest gate.
@@ -18,9 +23,30 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  const has = (r: StructuralRole) => session.roles.includes(r);
+  const [labels, cycle, peer, approvals, nominations] = await Promise.all([
+    resolveLabels(),
+    getActiveCycle(),
+    has("peer") ? getPeerAssignments().then((a) => a.length) : Promise.resolve(undefined),
+    has("approver") ? getApproverQueue().then((a) => a.length) : Promise.resolve(undefined),
+    has("approver") ? getNominationQueue().then((a) => a.length) : Promise.resolve(undefined),
+  ]);
+
+  // Workspace (tenant) name for the account menu — the product brand stays "Transforma".
+  const supabase = await createRlsClient();
+  const { data: company } = await supabase.from("companies").select("name").limit(1).maybeSingle();
+  const tenantName = (company?.name as string | undefined) ?? "Transforma";
+
   return (
     <ToastProvider>
-      <AppShell roles={session.roles} labels={labels}>
+      <AppShell
+        roles={session.roles}
+        labels={labels}
+        user={{ name: session.name, email: session.email }}
+        cycleName={cycle?.name ?? null}
+        tenantName={tenantName}
+        counts={{ peer, approvals, nominations }}
+      >
         {children}
       </AppShell>
     </ToastProvider>

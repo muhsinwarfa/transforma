@@ -6,6 +6,8 @@ import { createRlsClient } from "@/lib/supabase/server";
 export interface Session {
   accountId: string;
   companyId: string;
+  name: string;
+  email: string;
   roles: StructuralRole[];
 }
 
@@ -23,7 +25,7 @@ export async function loadSession(): Promise<Session | null> {
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("id, company_id")
+    .select("id, company_id, display_name, email")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (!account) return null;
@@ -36,6 +38,8 @@ export async function loadSession(): Promise<Session | null> {
   return {
     accountId: account.id as string,
     companyId: account.company_id as string,
+    name: account.display_name as string,
+    email: account.email as string,
     roles: (roleRows ?? []).map((r) => r.role as StructuralRole),
   };
 }

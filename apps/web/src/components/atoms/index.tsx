@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { IcoFlag, IcoLock } from "./icons";
+import Link from "next/link";
+import { IcoChevLeft, IcoFlag, IcoLock } from "./icons";
 
 // Canonical review status → display label + CSS class. The contract status
 // `awaiting-acknowledgement` maps to the design's `awaiting-ack` style class.
@@ -12,7 +13,9 @@ const STATUS_DISPLAY: Record<string, { label: string; cls: string }> = {
 };
 
 export function StatusBadge({ status, sm }: { status: string; sm?: boolean }) {
-  const s = STATUS_DISPLAY[status] ?? STATUS_DISPLAY.draft!;
+  // Unknown / blocked_sod / aborted → a neutral "Unavailable" badge, NOT a silent
+  // "Draft" (G3: an unrenderable status must never masquerade as a real one).
+  const s = STATUS_DISPLAY[status] ?? { label: "Unavailable", cls: "unavailable" };
   return (
     <span className={`badge ${s.cls} ${sm ? "sm" : ""}`.trim()}>
       {status === "locked" ? (
@@ -24,6 +27,14 @@ export function StatusBadge({ status, sm }: { status: string; sm?: boolean }) {
       )}
       {s.label}
     </span>
+  );
+}
+
+export function BackToHome({ label = "Back to home" }: { label?: string }) {
+  return (
+    <Link href="/home" className="form-back">
+      <IcoChevLeft s={16} /> {label}
+    </Link>
   );
 }
 

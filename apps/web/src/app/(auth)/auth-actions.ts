@@ -58,3 +58,10 @@ export async function activateAndSetPassword(
   await rls.auth.signInWithPassword({ email, password });
   redirect("/home");
 }
+
+/** Sign out — clears the Supabase session cookie, then returns to /login. */
+export async function signOut() {
+  const rls = await createRlsClient();
+  await rls.auth.signOut();
+  redirect("/login");
+}
