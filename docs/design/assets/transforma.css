@@ -219,6 +219,7 @@ html, body {
 .badge.awaiting-ack { color: #006a86; background: rgba(0,183,255,0.12); border-color: rgba(0,183,255,0.34); }
 .badge.locked    { color: var(--tf-locked-text); background: var(--tf-locked-bg); border-color: var(--hairline-strong); }
 .badge.flagged   { color: var(--warn-text);  background: var(--warn-bg);      border-color: rgba(201,68,0,0.25); }
+.badge.unavailable { color: var(--ink-3); background: rgba(0,0,77,0.04); border-color: var(--hairline); }
 .badge.sm { font-size: 10.5px; padding: 3px 8px; }
 
 /* Lock glyph inside Locked badge instead of dot */

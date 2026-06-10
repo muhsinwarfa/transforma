@@ -12,20 +12,35 @@ function AdminCycle({ tab, setTab, onToast }) {
       <div className="page-header">
         <div className="ph-left">
           <div className="ph-eyebrow"><span className="t-label">People Ops<span className="tok">{`{admin_label}`}</span></span></div>
-          <div className="ph-title"><h1>Cycle</h1><StatusBadge status="in-review" sm /></div>
+          <div className="ph-title"><h1>Cycle</h1>{tab !== 'empty' && <StatusBadge status="in-review" sm />}</div>
           <p className="ph-sub">Set up and oversee the review cycle. This is cycle-level oversight — not reading individual reviews.</p>
         </div>
+        {tab !== 'empty' && (
         <div className="ph-actions">
           <button className="btn btn-secondary" onClick={() => setTab('setup')}><IcoSettings s={17} /> Configure</button>
         </div>
+        )}
       </div>
 
+      {tab === 'empty' ? (
+        <div className="card pad">
+          <div className="state-block">
+            <span className="state-glyph"><IcoCycles s={26} /></span>
+            <h3>No cycle yet</h3>
+            <p>No cycle exists yet. Create one to begin.</p>
+            <button className="btn btn-primary" onClick={() => setTab('setup')}>Create a cycle</button>
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="admin-tabs" role="tablist">
         <button role="tab" className={`admin-tab ${tab === 'monitor' ? 'active' : ''}`} aria-selected={tab === 'monitor'} onClick={() => setTab('monitor')}><IcoReports s={17} /> Overview</button>
         <button role="tab" className={`admin-tab ${tab === 'setup' ? 'active' : ''}`} aria-selected={tab === 'setup'} onClick={() => setTab('setup')}><IcoSettings s={17} /> Setup</button>
       </div>
 
       {tab === 'setup' ? <CycleSetup onToast={onToast} /> : <CycleMonitor onToast={onToast} />}
+      </>
+      )}
     </div>
   );
 }
@@ -92,6 +107,8 @@ function CycleMonitor({ onToast }) {
 function CycleSetup({ onToast }) {
   const [name, setName] = useStateAd('H2 2026 Review');
   const [busy, setBusy] = useStateAd(false);
+  const [starting, setStarting] = useStateAd(false);
+  const [started, setStarted] = useStateAd(false);
   return (
     <>
       <div className="card pad" style={{ marginBottom: 18 }}>
@@ -127,6 +144,15 @@ function CycleSetup({ onToast }) {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={() => { setBusy(true); setTimeout(() => { setBusy(false); onToast('Cycle settings saved.'); }, 700); }} disabled={busy}>{busy ? <><IcoSpinner s={17} /> Saving…</> : 'Save cycle'}</button>
         <button className="btn btn-ghost" onClick={() => onToast('Discarded changes.')}>Cancel</button>
+      </div>
+
+      {/* A3 · Start cycle — idempotent roster kickoff */}
+      <div className="card pad" style={{ marginTop: 18 }}>
+        <h2 className="t-h3" style={{ marginBottom: 6 }}>Start the cycle</h2>
+        <p className="t-body-sm" style={{ marginBottom: 16, maxWidth: '62ch' }}>Open {name} for every participant on the roster. This creates each person's review. It's safe to run more than once — already-created reviews are left untouched.</p>
+        {started
+          ? <div className="notice info"><span className="n-ico"><IcoCheckCircle s={18} /></span><span>Cycle started — reviews created for the roster.</span></div>
+          : <button className="btn btn-primary" disabled={starting} onClick={() => { setStarting(true); setTimeout(() => { setStarting(false); setStarted(true); onToast('Cycle started — reviews created for the roster.'); }, 900); }}>{starting ? <><IcoSpinner s={17} /> Starting…</> : 'Start cycle'}</button>}
       </div>
     </>
   );
@@ -233,7 +259,6 @@ function AdminRoster({ state, setState, onToast }) {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
             <button className="btn btn-primary" onClick={() => setState('idle')}><IcoUpload s={16} /> Re-upload corrected file</button>
-            <button className="btn btn-secondary" onClick={() => onToast(`${ROSTER_IMPORT.validRows} valid rows imported; ${ROSTER_IMPORT.errorRows} skipped.`)}>Import {ROSTER_IMPORT.validRows} valid rows only</button>
             <button className="btn btn-ghost" onClick={() => onToast('Error report downloaded.')}><IcoDownload s={16} /> Download error report</button>
           </div>
         </>
@@ -259,10 +284,12 @@ function AdminSettings({ tab, setTab, onToast }) {
       <div className="admin-tabs" role="tablist">
         <button role="tab" className={`admin-tab ${tab === 'labels' ? 'active' : ''}`} aria-selected={tab === 'labels'} onClick={() => setTab('labels')}><IcoUsers s={17} /> Role labels</button>
         <button role="tab" className={`admin-tab ${tab === 'defaults' ? 'active' : ''}`} aria-selected={tab === 'defaults'} onClick={() => setTab('defaults')}><IcoSettings s={17} /> Defaults</button>
+        <button role="tab" className={`admin-tab ${tab === 'access' ? 'active' : ''}`} aria-selected={tab === 'access'} onClick={() => setTab('access')}><IcoShield s={17} /> Review access</button>
         <button role="tab" className={`admin-tab ${tab === 'actions' ? 'active' : ''}`} aria-selected={tab === 'actions'} onClick={() => setTab('actions')}><IcoSwitch s={17} /> Mid-cycle actions</button>
       </div>
 
       {tab === 'defaults' ? <CycleDefaults onToast={onToast} />
+        : tab === 'access' ? <ReviewAccessSettings onToast={onToast} />
         : tab === 'actions' ? <MidCycleActions onToast={onToast} />
           : <RoleLabels onToast={onToast} />}
     </div>
@@ -302,6 +329,54 @@ function RoleLabels({ onToast }) {
       <div className="agg-note" style={{ marginTop: 18 }}>
         <IcoInfo s={15} />
         <span>Changing a label updates it everywhere instantly — navigation, task cards, and review screens all read from these settings.</span>
+      </div>
+    </div>
+  );
+}
+
+// ---- A2 · Review access — company switch + per-admin grants ----
+function ReviewAccessSettings({ onToast }) {
+  const [enabled, setEnabled] = useStateAd(true);
+  const [grants, setGrants] = useStateAd(Object.fromEntries(ADMIN_LIST.map((a) => [a.id, a.granted])));
+  const toggleGrant = (id, name) => {
+    setGrants((g) => {
+      const next = { ...g, [id]: !g[id] };
+      onToast(next[id] ? `Review access granted to ${name}.` : `Review access revoked for ${name}.`);
+      return next;
+    });
+  };
+  return (
+    <div className="subj-col" style={{ margin: 0 }}>
+      <div className="card pad" style={{ marginBottom: 16 }}>
+        <label className="tf-menu-toggle" style={{ padding: 0 }}>
+          <span><span className="tf-mt-title">Allow individual review access</span><span className="tf-mt-sub">When off, no administrator can read individual review content, regardless of grants. Cycle-level counts stay available.</span></span>
+          <input type="checkbox" checked={enabled} onChange={() => { setEnabled((e) => !e); onToast(enabled ? 'Individual review access turned off.' : 'Individual review access turned on.'); }} />
+          <span className="tf-switch" aria-hidden="true" />
+        </label>
+      </div>
+
+      <div className="card pad" style={{ opacity: enabled ? 1 : 0.55 }}>
+        <h2 className="t-h3" style={{ marginBottom: 4 }}>Who can read reviews</h2>
+        <p className="t-body-sm" style={{ marginBottom: 14, maxWidth: '64ch' }}>Review access is a separate capability from the administrator role — holding admin alone grants nothing. Every read is recorded in the audit log.</p>
+        <div className="nom-review-list">
+          {ADMIN_LIST.map((a) => (
+            <div className="nom-review-row" key={a.id} style={{ gap: 12 }}>
+              <Avatar name={a.name} initial={a.initials} cls="sm" />
+              <div className="nrr-main" style={{ flex: 1 }}><span className="nrr-name">{a.name}</span><span className="nrr-rel">{a.email}</span></div>
+              {grants[a.id]
+                ? <button className="btn btn-destructive sm" disabled={!enabled} onClick={() => toggleGrant(a.id, a.name)}>Revoke</button>
+                : <button className="btn btn-outline sm" disabled={!enabled} onClick={() => toggleGrant(a.id, a.name)}>Grant</button>}
+            </div>
+          ))}
+          {ADMIN_LIST.length === 0 && (
+            <div className="state-block"><span className="state-glyph"><IcoUsers s={26} /></span><h3>No administrators yet</h3><p>When other administrators join this workspace, you can grant them review access here.</p></div>
+          )}
+        </div>
+      </div>
+
+      <div className="agg-note" style={{ marginTop: 16 }}>
+        <IcoShield s={15} />
+        <span>Peer feedback is never readable here or anywhere — this capability covers the finished review, the self-review, and the employee's response only.</span>
       </div>
     </div>
   );
@@ -394,4 +469,4 @@ function MidCycleCard({ ico, title, desc, fields, cta, danger, onApply }) {
   );
 }
 
-Object.assign(window, { AdminCycle, CycleMonitor, CycleSetup, AdminRoster, AdminSettings, RoleLabels, CycleDefaults, MidCycleActions });
+Object.assign(window, { AdminCycle, CycleMonitor, CycleSetup, AdminRoster, AdminSettings, RoleLabels, CycleDefaults, MidCycleActions, ReviewAccessSettings });

@@ -1,0 +1,173 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "assets/**",
+              "ui_kits/app/**",
+              "web/src/**",
+              "web/src/components/**",
+              "web/src/phases/**",
+              "web/src/phases/onboarding/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--ambient-stripes",
+      "--bg",
+      "--bg-2",
+      "--bg-3",
+      "--blue",
+      "--blue-deep",
+      "--blue-hover",
+      "--blue-pressed",
+      "--body",
+      "--body-sm",
+      "--button",
+      "--code",
+      "--cyan",
+      "--display",
+      "--dur",
+      "--dur-fast",
+      "--dur-slow",
+      "--ease",
+      "--error",
+      "--font-b",
+      "--font-h",
+      "--font-mono",
+      "--gold",
+      "--gold-deep",
+      "--gold-light",
+      "--gold-tint",
+      "--h1",
+      "--h2",
+      "--h3",
+      "--hairline",
+      "--hairline-strong",
+      "--hamse-blue",
+      "--hero-gradient",
+      "--ink-1",
+      "--ink-2",
+      "--ink-3",
+      "--ink-4",
+      "--label",
+      "--navy",
+      "--on-accent",
+      "--paper",
+      "--paper-sunken",
+      "--r-btn",
+      "--r-card",
+      "--r-chip",
+      "--r-hero",
+      "--shadow-focus",
+      "--shadow-lg",
+      "--shadow-md",
+      "--shadow-sm",
+      "--surface-field",
+      "--tint-blue",
+      "--tint-cyan",
+      "--title",
+      "--warn-bg",
+      "--warn-text"
+    ],
+    "tokenKinds": {
+      "--navy": "color",
+      "--blue": "color",
+      "--cyan": "color",
+      "--blue-hover": "color",
+      "--blue-pressed": "color",
+      "--blue-deep": "color",
+      "--bg": "color",
+      "--bg-2": "color",
+      "--bg-3": "color",
+      "--paper": "color",
+      "--paper-sunken": "color",
+      "--surface-field": "color",
+      "--hero-gradient": "other",
+      "--ambient-stripes": "other",
+      "--ink-1": "color",
+      "--ink-2": "color",
+      "--ink-3": "color",
+      "--ink-4": "color",
+      "--on-accent": "color",
+      "--tint-blue": "color",
+      "--tint-cyan": "color",
+      "--error": "color",
+      "--warn-bg": "color",
+      "--warn-text": "font",
+      "--hairline": "color",
+      "--hairline-strong": "color",
+      "--shadow-sm": "shadow",
+      "--shadow-md": "shadow",
+      "--shadow-lg": "shadow",
+      "--shadow-focus": "shadow",
+      "--r-chip": "spacing",
+      "--r-btn": "spacing",
+      "--r-card": "spacing",
+      "--r-hero": "spacing",
+      "--font-h": "font",
+      "--font-b": "font",
+      "--font-mono": "font",
+      "--ease": "other",
+      "--dur-fast": "other",
+      "--dur": "other",
+      "--dur-slow": "other",
+      "--display": "color",
+      "--h1": "color",
+      "--h2": "color",
+      "--h3": "color",
+      "--title": "color",
+      "--body": "color",
+      "--body-sm": "color",
+      "--label": "color",
+      "--button": "color",
+      "--code": "color",
+      "--gold": "color",
+      "--gold-deep": "color",
+      "--gold-light": "color",
+      "--gold-tint": "color",
+      "--hamse-blue": "color"
+    },
+    "fontFamilies": []
+  }
+}

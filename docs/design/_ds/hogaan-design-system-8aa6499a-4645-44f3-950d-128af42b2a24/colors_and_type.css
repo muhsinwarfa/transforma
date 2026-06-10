@@ -1,0 +1,110 @@
+/* ============================================================
+   HOGAAN — Colors & Type foundation
+   AI leadership coaching · Hamse Warfa™
+   Distilled from the production app (muhsinwarfa/hogaan,
+   web/src/styles/hogaan-base.css). Import this into any new
+   Hogaan design to inherit the exact brand tokens.
+
+   Fonts are Google Fonts — load them once in your <head>:
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+   ============================================================ */
+
+:root {
+  /* ---- BRAND CORE (exact, from Hamse Warfa™ Brand Guidelines) ---- */
+  --navy: #00004d;          /* primary ink, deepest brand color */
+  --blue: #0086ff;          /* primary action / accent */
+  --cyan: #00b7ff;          /* bright accent, quote marks, glows */
+  --blue-hover: #0077e6;    /* hover on filled blue */
+  --blue-pressed: #005fba;  /* active/pressed */
+  --blue-deep: #0068cc;     /* link text, deep accents on light */
+
+  /* ---- SURFACE SYSTEM (cool-blue, layered low → high) ---- */
+  --bg: #eaf4ff;            /* page background */
+  --bg-2: #d6e8fa;          /* mid hero step / section divider */
+  --bg-3: #c2dcf5;          /* deepest hero step */
+  --paper: #f4f9ff;         /* card / panel surface */
+  --paper-sunken: #dcebfb;  /* recessed surface — also input fields */
+  --surface-field: #dcebfb; /* explicit alias for input/select/textarea */
+
+  /* ---- COMPOSITE SURFACES ---- */
+  --hero-gradient: linear-gradient(135deg, #eaf4ff 0%, #d6e8fa 50%, #c2dcf5 100%);
+  --ambient-stripes: repeating-linear-gradient(
+    45deg, rgba(0, 183, 255, 0.02) 0 1px, transparent 1px 14px);
+
+  /* ---- INK / TEXT ---- */
+  --ink-1: #00004d;         /* primary text (= navy) */
+  --ink-2: #6b6b7a;         /* secondary text / body subdued */
+  --ink-3: #8a8794;         /* tertiary / captions / placeholders */
+  --ink-4: #bab6c2;         /* faint / disabled glyphs */
+  --on-accent: #ffffff;     /* text on filled blue (pair with weight ≥600) */
+
+  /* ---- INTERACTION TINTS ---- */
+  --tint-blue: rgba(0, 134, 255, 0.10);
+  --tint-cyan: rgba(0, 183, 255, 0.06);
+
+  /* ---- STATUS / SEMANTIC ---- */
+  --error: rgb(176, 70, 62);
+  --warn-bg: rgba(201, 68, 0, 0.10);
+  --warn-text: rgb(180, 55, 0);
+
+  /* ---- HAIRLINES & SHADOWS (anchored on brand navy) ---- */
+  --hairline: rgba(0, 0, 77, 0.08);
+  --hairline-strong: rgba(0, 0, 77, 0.18);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 77, 0.04), 0 2px 6px rgba(0, 0, 77, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 77, 0.06), 0 12px 32px rgba(0, 0, 77, 0.08);
+  --shadow-lg: 0 22px 50px rgba(0, 0, 77, 0.14);
+  --shadow-focus: 0 0 0 3px rgba(0, 134, 255, 0.30);
+
+  /* ---- RADII ---- */
+  --r-chip: 999px;          /* pills, toggles, avatars */
+  --r-btn: 12px;            /* buttons, inputs */
+  --r-card: 20px;           /* cards, panels */
+  --r-hero: 28px;           /* hero / brand panels */
+
+  /* ---- TYPE FAMILIES ---- */
+  --font-h: 'Lexend Deca', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-b: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---- MOTION ---- */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 180ms;
+  --dur: 300ms;
+  --dur-slow: 480ms;
+
+  /* ============================================================
+     SEMANTIC TYPE TOKENS
+     Headings use Lexend Deca w/ negative tracking; body uses Inter.
+     Hogaan headings are weight 500 (not bold) for a calm, editorial
+     feel. Bold is reserved for the wordmark and inline emphasis.
+     ============================================================ */
+  --display: 500 38px/1.05 var(--font-h);   /* celebratory / greeting */
+  --h1: 500 34px/1.12 var(--font-h);        /* screen headlines */
+  --h2: 600 22px/1.25 var(--font-h);        /* card / section titles */
+  --h3: 600 18px/1.3 var(--font-h);         /* sub-titles */
+  --title: 600 15px/1.3 var(--font-h);      /* row / list titles */
+  --body: 400 15px/1.55 var(--font-b);      /* default body copy */
+  --body-sm: 400 13.5px/1.5 var(--font-b);  /* helper text */
+  --label: 500 11px/1 var(--font-b);        /* eyebrows (UPPERCASE, +0.18em) */
+  --button: 600 15.5px/1 var(--font-b);     /* CTA text */
+  --code: 400 11px/1 var(--font-mono);      /* version strings, tokens */
+}
+
+/* ---- Heading letter-spacing convention ---- */
+/* Display / h1: -0.02em · h2/h3/title: -0.01em → -0.005em */
+
+/* ---- Ready-made semantic classes (optional) ---- */
+.t-display { font: var(--display); letter-spacing: -0.025em; color: var(--ink-1); }
+.t-h1      { font: var(--h1);      letter-spacing: -0.02em;  color: var(--ink-1); }
+.t-h2      { font: var(--h2);      letter-spacing: -0.01em;  color: var(--ink-1); }
+.t-h3      { font: var(--h3);      letter-spacing: -0.005em; color: var(--ink-1); }
+.t-title   { font: var(--title);   letter-spacing: -0.005em; color: var(--ink-1); }
+.t-body    { font: var(--body);    color: var(--ink-2); }
+.t-body-sm { font: var(--body-sm); color: var(--ink-2); }
+.t-label   { font: var(--label);   letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); }
+.t-code    { font: var(--code);    letter-spacing: 0.05em; color: var(--ink-3); }
+
+/* Inline emphasis — Hogaan italicizes lead-ins ("An insight:") and Somali
+   words (sharaf, naxariis) in Lexend Deca italic, blue-deep. */
+.t-em { font-family: var(--font-h); font-style: italic; font-weight: 500; color: var(--blue-deep); }

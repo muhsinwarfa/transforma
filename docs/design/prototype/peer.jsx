@@ -85,7 +85,7 @@ function PeerRequestRow({ req, onOpen, done }) {
           <span className="peer-row-name">{req.subject}</span>
           <span className="role-chip sm">{TENANT.labels[req.subjectRole]}<span className="tok">{`{${TENANT.tokens[req.subjectRole]}}`}</span></span>
         </div>
-        <span className="peer-row-rel">{req.relation}</span>
+        <span className="peer-row-rel">{req.dept}</span>
         <div className="peer-row-foot">
           {done
             ? <span className="badge in-review sm" style={{ background: 'rgba(0,0,77,0.05)', color: 'var(--ink-2)', borderColor: 'var(--hairline)' }}><IcoCheck s={11} sw={2.4} />Submitted</span>
@@ -131,7 +131,7 @@ function PeerForm({ req, onSubmit, onBack, onDecline }) {
             <h1 className="psh-name">Feedback for {req.subject}</h1>
             <span className="role-chip sm">{TENANT.labels[req.subjectRole]}<span className="tok">{`{${TENANT.tokens[req.subjectRole]}}`}</span></span>
           </div>
-          <span className="psh-rel">{req.relation}</span>
+          <span className="psh-rel">{req.dept}</span>
         </div>
         <span className={`deadline ${deadlineClass(req.daysLeft)} psh-deadline`}><IcoClock s={13} sw={1.9} /> {deadlineText(req)}</span>
       </div>
@@ -309,8 +309,34 @@ function PeerTrack({ view, setView, activeId, setActiveId, onToast }) {
       return <PeerClosed req={req} onList={() => setView('list')} />;
     case 'decline':
       return <PeerDecline req={req}
-        onConfirm={() => { setView('list'); setTimeout(() => onToast(`Request for ${req.subject} declined.`), 150); }}
+        onConfirm={() => { setView('declined'); setTimeout(() => onToast(`Request for ${req.subject} declined.`), 150); }}
         onCancel={() => setView('form')} />;
+    case 'declined':
+      return (
+        <div className="tf-page subj-narrow">
+          <div className="card pad">
+            <div className="state-block">
+              <span className="state-glyph"><IcoCheckCircle s={26} /></span>
+              <h3>Request declined</h3>
+              <p>You declined this request. No further action is needed. Thanks for letting us know.</p>
+              <button className="btn btn-secondary" onClick={() => setView('list')}>Back to requests</button>
+            </div>
+          </div>
+        </div>
+      );
+    case 'unavailable':
+      return (
+        <div className="tf-page subj-narrow">
+          <div className="card pad">
+            <div className="state-block">
+              <span className="state-glyph"><IcoInfo s={26} /></span>
+              <h3>Not available</h3>
+              <p>This request isn't available to you. It may belong to a different {TENANT.labels.peer}, or it may have already been handled.</p>
+              <button className="btn btn-secondary" onClick={() => setView('list')}>Back to requests</button>
+            </div>
+          </div>
+        </div>
+      );
     case 'list':
     default:
       return <PeerList requests={PEER_REQUESTS} onOpen={openForm} />;

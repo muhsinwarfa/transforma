@@ -1,0 +1,21 @@
+/* Shared chrome for Design System specimen cards. Each card links
+   ../colors_and_type.css first, then this. Cards are ~700px wide. */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-b);
+  color: var(--ink-1);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.card {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.col { display: flex; flex-direction: column; }
+.cap { font: var(--label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.mono { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.02em; }

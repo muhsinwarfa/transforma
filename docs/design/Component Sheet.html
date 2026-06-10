@@ -60,7 +60,7 @@
   <!-- STATUS BADGES -->
   <section class="sec">
     <div class="sec-head"><h2>Status badges</h2><span class="sec-tag ext">Transforma extension</span></div>
-    <p class="sec-desc">The shared review lifecycle, used everywhere a review appears: <strong>Draft → In review → Awaiting acknowledgement → Locked</strong>, plus <strong>Flagged</strong>. Built from Hogaan's semantic tokens — cyan for the subject's turn (Awaiting acknowledgement), neutral for Locked, the warning token for Flagged.</p>
+    <p class="sec-desc">The shared review lifecycle, used everywhere a review appears: <strong>Draft → In review → Awaiting acknowledgement → Locked</strong>, plus <strong>Flagged</strong> — and a neutral <strong>Unavailable</strong> for unknown/edge statuses. Built from Hogaan's semantic tokens — cyan for the subject's turn (Awaiting acknowledgement), neutral for Locked, the warning token for Flagged.</p>
     <div class="specimen">
       <div class="row">
         <span class="badge draft"><span class="dot"></span>Draft</span>
@@ -68,6 +68,7 @@
         <span class="badge awaiting-ack"><span class="dot"></span>Awaiting acknowledgement</span>
         <span class="badge locked"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9" rx="2"></rect><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"></path></svg>Locked</span>
         <span class="badge flagged"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"></path><path d="M5 4.5h11l-2 3.5 2 3.5H5"></path></svg>Flagged</span>
+        <span class="badge unavailable">Unavailable</span>
       </div>
       <div class="row" style="margin-top:20px;">
         <span class="badge draft sm"><span class="dot"></span>Draft</span>
@@ -75,6 +76,7 @@
         <span class="badge awaiting-ack sm"><span class="dot"></span>Awaiting acknowledgement</span>
         <span class="badge locked sm"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9" rx="2"></rect><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"></path></svg>Locked</span>
         <span class="badge flagged sm"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"></path><path d="M5 4.5h11l-2 3.5 2 3.5H5"></path></svg>Flagged</span>
+        <span class="badge unavailable sm">Unavailable</span>
         <span class="mini-label" style="margin:0 0 0 8px;">Small variant — inline in cards &amp; tables</span>
       </div>
     </div>

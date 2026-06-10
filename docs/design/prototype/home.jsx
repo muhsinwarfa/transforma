@@ -44,7 +44,7 @@ function peerHubCards() {
     title: `Feedback for ${r.subject}`,
     status: r.state === 'draft' ? 'in-review' : 'draft',
     due: r.daysLeft <= 3 ? `Due ${r.deadline} · ${r.daysLeft}d` : `Due ${r.deadline}`,
-    meta: r.relation,
+    meta: r.dept,
     cta: r.state === 'draft' ? 'Continue' : 'Start',
     goto: r.id,
   }));
@@ -74,7 +74,7 @@ function approverHubCards() {
 function adminHubCards() {
   return [
     { id: 'ad-roster', title: 'Roster needs attention', status: 'flagged', due: '4 rows to fix', meta: 'Latest import had validation errors', cta: 'Open roster', goto: { section: 'roster', rosterState: 'error', label: 'Roster upload · errors' } },
-    { id: 'ad-noms', title: 'Nomination approvals waiting', status: 'in-review', due: '2 to review', meta: 'Direct reports’ peer nominations', cta: 'Open approvals', goto: { section: 'approvals', approverView: 'nominations' } },
+    { id: 'ad-noms', title: 'Nomination approvals waiting', status: 'in-review', due: '2 to review', meta: 'Direct reports’ peer nominations', cta: 'Open nominations', goto: { section: 'nominations' } },
     { id: 'ad-mon', title: 'Cycle in progress', status: 'in-review', due: '9 days left', meta: '128 participants · 38 locked', cta: 'View cycle', goto: { section: 'cycles', cycleTab: 'monitor', label: 'Cycle monitoring' } },
   ];
 }

@@ -1,0 +1,50 @@
+/* ui_kits/app — kit-only overrides.
+   The kit presents the canonical MOBILE phone-frame experience at any
+   viewport (desktop multi-column CSS is intentionally not loaded), so we
+   keep the chat hamburger + drawer reachable regardless of window width. */
+
+/* Always show the chat "sessions" hamburger (base styling lives inside a
+   <1024px media query in mobile-polish; redefine unconditionally here). */
+.ch-menu {
+  appearance: none;
+  background: transparent;
+  border: none;
+  width: 40px;
+  height: 40px;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-1);
+  cursor: pointer;
+  border-radius: 10px;
+}
+.ch-menu:hover { background: rgba(0, 0, 77, 0.05); }
+
+/* In the real app the privacy-toggle label only hides below 420px viewport.
+   The kit presents a 440px phone frame inside a wide window, so force the
+   compact icon+switch toggle to keep the chat topbar inside the frame. */
+.ch-priv-text { display: none !important; }
+
+/* Flex wrappers that normally live in hogaan-desktop.css (not loaded in the
+   kit — we present the mobile phone-frame experience). Without these the
+   auth + chat pages collapse to display:block and content disappears. */
+.auth-page { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.ch-page   { flex: 1; display: flex; min-height: 0; }
+
+/* The stage ambient backdrop fills the kit viewport. */
+html, body { height: 100%; }
+#root { min-height: 100%; }
+
+/* Entrance animations in the source CSS start at opacity:0 and rely on the
+   animation to fade content in. Preview iframes pause CSS animations when
+   not focused, which freezes content invisible. Neutralize the opacity-from-0
+   entrances so the kit always shows content; interactive animations (toggles,
+   thinking dots, pulse) are unaffected. */
+.auth-card,
+.phase-stage > *,
+.celebrate-mark { animation: none !important; }
+
+/* Onboarding screen slide transitions. Kept transform-light and never
+   starting from opacity:0, so a paused (unfocused) iframe still shows the
+   screen instead of freezing it invisible. */
+.slide-forward, .slide-back { animation: none; }

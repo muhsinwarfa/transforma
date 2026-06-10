@@ -54,6 +54,7 @@ const SUBJECT_STATES = [
   { id: 'flag-form', label: 'Flag / disagree · response' },
   { id: 'locked-ack', label: 'Locked · acknowledged' },
   { id: 'locked-flagged', label: 'Locked · flagged + response' },
+  { id: 'no-review', label: 'No active review (canon)' },
 ];
 
 function SubjectStateLauncher({ current, onPick }) {
@@ -80,7 +81,9 @@ const PEER_STATES = [
   { id: 'form', label: 'Feedback form' },
   { id: 'submitted', label: 'Submitted · confirmation' },
   { id: 'decline', label: 'Decline · not right reviewer' },
+  { id: 'declined', label: 'Declined · confirmation' },
   { id: 'closed', label: 'Closed · window passed' },
+  { id: 'unavailable', label: 'Not available · foreign/handled' },
 ];
 
 function PeerStateLauncher({ current, onPick }) {
@@ -104,9 +107,8 @@ function PeerStateLauncher({ current, onPick }) {
 
 const APPROVER_STATES = [
   { id: 'queue', label: 'Review queue (incl. flagged)' },
+  { id: 'queue-empty', label: 'Queue · all caught up' },
   { id: 'workspace', label: 'Review workspace · edit + rate' },
-  { id: 'nominations', label: 'Peer nominations · to approve' },
-  { id: 'nomination', label: 'Peer nominations · one report' },
   { id: 'locked', label: 'Finalized / read-only' },
 ];
 
@@ -131,15 +133,22 @@ function ApproverStateLauncher({ current, onPick }) {
   );
 }
 
-// Admin spans three nav sections; the launcher jumps to any admin screen at once.
+// Admin spans several nav sections; the launcher jumps to any admin screen at once.
 const ADMIN_STATES = [
-  { section: 'cycles', cycleTab: 'setup', label: 'Cycle setup' },
+  { section: 'cycles', cycleTab: 'empty', label: 'Cycle · none yet (canon)' },
+  { section: 'cycles', cycleTab: 'setup', label: 'Cycle setup + start' },
   { section: 'roster', rosterState: 'idle', label: 'Roster upload · start' },
   { section: 'roster', rosterState: 'success', label: 'Roster upload · success' },
   { section: 'roster', rosterState: 'error', label: 'Roster upload · errors' },
   { section: 'cycles', cycleTab: 'monitor', label: 'Cycle monitoring' },
+  { section: 'reviews', reviewsMode: 'off', label: 'Reviews · feature off' },
+  { section: 'reviews', reviewsMode: 'nogrant', label: 'Reviews · no grant' },
+  { section: 'reviews', reviewsMode: 'empty', label: 'Reviews · none yet' },
+  { section: 'reviews', reviewsMode: 'list', label: 'Reviews · list' },
+  { section: 'reviews', reviewsMode: 'detail', label: 'Reviews · sealed record' },
   { section: 'settings', settingsTab: 'labels', label: 'Role labels' },
   { section: 'settings', settingsTab: 'defaults', label: 'Cycle defaults' },
+  { section: 'settings', settingsTab: 'access', label: 'Review access' },
   { section: 'settings', settingsTab: 'actions', label: 'Mid-cycle actions' },
 ];
 
@@ -174,6 +183,9 @@ function App() {
   const [approverActive, setApproverActive] = useStateApp(typeof APPROVER_QUEUE !== 'undefined' ? APPROVER_QUEUE[0].id : null);
   const [approverRating, setApproverRating] = useStateApp('');
   const [nomActive, setNomActive] = useStateApp(typeof NOMINATION_QUEUE !== 'undefined' ? NOMINATION_QUEUE[0].id : null);
+  const [nomView, setNomView] = useStateApp(init && init.section === 'nominations' && init.view ? init.view : 'list');
+  const [reviewsMode, setReviewsMode] = useStateApp(init && init.section === 'reviews' && init.view ? init.view : 'list');
+  const [reviewsActive, setReviewsActive] = useStateApp(typeof ADMIN_REVIEWS !== 'undefined' ? ADMIN_REVIEWS[0].id : null);
   const [cycleTab, setCycleTab] = useStateApp(init && init.section === 'cycles' && init.view ? init.view : 'monitor');
   const [rosterState, setRosterState] = useStateApp(init && init.section === 'roster' && init.view ? init.view : 'idle');
   const [settingsTab, setSettingsTab] = useStateApp(init && init.section === 'settings' && init.view ? init.view : 'labels');
@@ -212,22 +224,22 @@ function App() {
   const goReview = (view) => { if (view) setSubjectView(view); setSection('review'); };
   const goPeer = (id) => { if (id) { setPeerActive(id); setPeerView('form'); } else { setPeerView('list'); } setSection('peer'); };
   const goApprovals = (id, view) => {
-    if (view === 'nomination') { setNomActive(id); setApproverView('nomination'); }
-    else if (id) {
+    if (view === 'nomination') { setNomActive(id); setNomView('detail'); setSection('nominations'); return; }
+    if (id) {
       setApproverActive(id);
       const q = APPROVER_QUEUE.find((x) => x.id === id);
-      if (q && q.queueState === 'locked') { setApproverView('locked'); }
+      if (q && (q.queueState === 'locked' || q.queueState === 'awaiting-ack')) { setApproverView('locked'); }
       else setApproverView('workspace');
     } else setApproverView('queue');
     setSection('approvals');
   };
   const goAdmin = (s) => {
-    // s = { section, cycleTab?, rosterState?, settingsTab?, approverView?, label }
+    // s = { section, cycleTab?, rosterState?, settingsTab?, reviewsMode?, label }
     if (s.cycleTab) setCycleTab(s.cycleTab);
     if (s.rosterState) setRosterState(s.rosterState);
     if (s.settingsTab) setSettingsTab(s.settingsTab);
+    if (s.reviewsMode) setReviewsMode(s.reviewsMode);
     if (s.label) setAdminKey(s.label);
-    if (s.approverView) { setApproverView(s.approverView); setSection('approvals'); return; }
     setSection(s.section);
   };
   let page = null;
@@ -235,6 +247,13 @@ function App() {
   else if (section === 'approvals') page = <ApproverTrack view={approverView} setView={setApproverView} activeId={approverActive} setActiveId={setApproverActive} rating={approverRating} setRating={setApproverRating} nomActive={nomActive} setNomActive={setNomActive} onToast={push} />;
   else if (section === 'review') page = <MyReview view={subjectView} setView={setSubjectView} ack={subjectAck} setAck={setSubjectAck} onHome={() => setSection('home')} onToast={push} />;
   else if (section === 'peer') page = <PeerTrack view={peerView} setView={setPeerView} activeId={peerActive} setActiveId={setPeerActive} onToast={push} />;
+  else if (section === 'nominations') page = (nomView === 'detail'
+    ? <NominationDetail item={NOMINATION_QUEUE.find((n) => n.id === nomActive) || NOMINATION_QUEUE[0]}
+        onBack={() => setNomView('list')}
+        onApprove={() => { setNomView('list'); setTimeout(() => push('Nominations approved.'), 150); }}
+        onRequestChanges={() => { setNomView('list'); setTimeout(() => push('Sent back with your note.'), 150); }} />
+    : <NominationApprovals onOpen={(id) => { setNomActive(id); setNomView('detail'); }} />);
+  else if (section === 'reviews') page = <AdminReviews mode={reviewsMode} setMode={setReviewsMode} activeId={reviewsActive} setActiveId={setReviewsActive} />;
   else if (section === 'cycles') page = <AdminCycle tab={cycleTab} setTab={setCycleTab} onToast={push} />;
   else if (section === 'roster') page = <AdminRoster state={rosterState} setState={setRosterState} onToast={push} />;
   else if (section === 'settings') page = <AdminSettings tab={settingsTab} setTab={setSettingsTab} onToast={push} />;
@@ -245,7 +264,7 @@ function App() {
       <Sidebar active={section} onNav={setSection} roles={roles} />
       <div className="tf-main">
         <AppHeader roles={roles} onSignOut={() => setPhase('login')} tokensOn={tokensOn} onToggleTokens={() => setTokensOn((t) => !t)} onOpenDrawer={() => setDrawer(true)} />
-        <main className="tf-content" key={section + '/' + (section === 'review' ? subjectView : section === 'peer' ? peerView + peerActive : section === 'approvals' ? approverView + approverActive + nomActive : section === 'cycles' ? cycleTab : section === 'roster' ? rosterState : section === 'settings' ? settingsTab : '')}>
+        <main className="tf-content" key={section + '/' + (section === 'review' ? subjectView : section === 'peer' ? peerView + peerActive : section === 'approvals' ? approverView + approverActive : section === 'nominations' ? nomView + nomActive : section === 'reviews' ? reviewsMode + reviewsActive : section === 'cycles' ? cycleTab : section === 'roster' ? rosterState : section === 'settings' ? settingsTab : '')}>
           <div className="tf-content-inner">{page}</div>
         </main>
       </div>
@@ -255,7 +274,7 @@ function App() {
       {section === 'review' && <SubjectStateLauncher current={subjectView} onPick={setSubjectView} />}
       {section === 'peer' && <PeerStateLauncher current={peerView} onPick={setPeerView} />}
       {section === 'approvals' && <ApproverStateLauncher current={approverView} onPick={setApproverView} />}
-      {['cycles', 'roster', 'settings'].includes(section) && <AdminStateLauncher activeKey={adminKey} onPick={goAdmin} />}
+      {['cycles', 'roster', 'settings', 'reviews'].includes(section) && <AdminStateLauncher activeKey={adminKey} onPick={goAdmin} />}
     </div>
   );
 }

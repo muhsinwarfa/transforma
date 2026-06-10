@@ -79,10 +79,7 @@ function LoginScreen({ onSignIn, onForgot }) {
           <input id="lg-email" type="email" className={`input ${email ? 'is-filled' : ''}`} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
         </div>
         <PasswordInput id="lg-pw" label="Password" value={pw} onChange={setPw} placeholder="Enter your password" onEnter={submit} />
-        <div className="auth-inline-row">
-          <label className="auth-check">
-            <input type="checkbox" defaultChecked /> <span>Keep me signed in</span>
-          </label>
+        <div className="auth-inline-row" style={{ justifyContent: 'flex-end' }}>
           <button type="button" className="auth-link" onClick={onForgot}>Forgot your password?</button>
         </div>
         <button type="button" className="btn btn-primary block lg" onClick={submit} disabled={busy}>
@@ -116,16 +113,17 @@ function ActivationValid({ onActivate }) {
 
 function ActivationState({ variant, onRequestNew, onSignIn }) {
   const v = variant === 'expired'
-    ? { ico: <IcoClock s={26} />, title: 'This link has expired', body: 'Activation links are single-use and valid for 7 days. Request a fresh one and we\u2019ll email it to you right away.', primary: 'Send me a new link', onPrimary: onRequestNew, glyph: 'warn' }
-    : { ico: <IcoCheckCircle s={26} />, title: 'This link has already been used', body: 'Your account is already active. Sign in with the password you set when you activated it.', primary: 'Go to sign in', onPrimary: onSignIn, glyph: 'ok' };
+    ? { ico: <IcoClock s={26} />, title: 'This link has expired', body: 'Activation links are single-use and valid for 7 days. Your administrator can send you a fresh one.', glyph: 'warn' }
+    : { ico: <IcoCheckCircle s={26} />, title: 'This link has already been used', body: 'Your account is already active. Sign in with the password you set when you activated it.', glyph: 'ok' };
   return (
     <AuthShell footer={<span>Need help? <a href="#" onClick={(e) => e.preventDefault()}>Contact your administrator</a></span>}>
       <div className={`auth-status-mark ${v.glyph}`}>{v.ico}</div>
       <h1 className="auth-h">{v.title}</h1>
       <p className="auth-sub">{v.body}</p>
       <div className="auth-form">
-        <button type="button" className="btn btn-primary block lg" onClick={v.onPrimary}>{v.primary}</button>
-        {variant === 'expired' && <button type="button" className="btn btn-ghost block" onClick={onSignIn}>Back to sign in</button>}
+        {variant === 'expired'
+          ? <button type="button" className="btn btn-primary block lg" onClick={onSignIn}>Back to sign in</button>
+          : <button type="button" className="btn btn-primary block lg" onClick={onSignIn}>Go to sign in</button>}
       </div>
     </AuthShell>
   );

@@ -42,15 +42,42 @@ const ACK_WINDOW = { deadline: 'June 23, 2026', daysLeft: 7 };
 
 // =============================================================
 // 0 · NOMINATE PEER REVIEWERS  (new stage, before feedback)
+// Submit is enabled from 1 selection; under the suggested minimum a
+// confirmation dialog (below-floor warning) intervenes.
 // =============================================================
-function NominatePeers({ seedSelected, locked, changeNote, onSubmit, onHome }) {
+function BelowFloorModal({ min, onBack, onSubmitAnyway }) {
+  const ref = useRefSj(null);
+  useEffectSj(() => { ref.current && ref.current.focus(); }, []);
+  return (
+    <div className="modal-scrim" onClick={onBack}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="bf-title" onClick={(e) => e.stopPropagation()}>
+        <span className="modal-mark"><IcoPeer s={26} /></span>
+        <h2 id="bf-title">Submit with fewer than {min} peer reviewers?</h2>
+        <p>Peer feedback is only included when at least {min} people respond. With fewer nominated, your review may be built from your self-review alone.</p>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onSubmitAnyway}>Submit anyway</button>
+          <button className="btn btn-primary" ref={ref} onClick={onBack}>Go back and add more</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NominatePeers({ seedSelected, locked, changeNote, floorWarnOpen, onSubmit, onHome }) {
   const [selected, setSelected] = useStateSj(seedSelected || []);
+  const [showFloorWarn, setShowFloorWarn] = useStateSj(!!floorWarnOpen);
   const { min, max, population } = NOMINATION;
   const toggle = (id) => {
     if (locked) return;
     setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : (s.length < max ? [...s, id] : s));
   };
-  const enough = selected.length >= min;
+  const underMin = selected.length < min;
+  const canSubmit = selected.length >= 1;
+  const trySubmit = () => {
+    if (!canSubmit) return;
+    if (underMin) { setShowFloorWarn(true); return; }
+    onSubmit();
+  };
 
   return (
     <div className="tf-page subj-col">
@@ -71,7 +98,7 @@ function NominatePeers({ seedSelected, locked, changeNote, onSubmit, onHome }) {
 
       <div className="nom-bar">
         <span className="nom-count">{selected.length} of up to {max} selected</span>
-        <span className={`nom-req ${enough ? 'ok' : ''}`}>{enough ? <><IcoCheck s={13} sw={2.4} /> Minimum of {min} met</> : `Pick at least ${min}`}</span>
+        <span className={`nom-req ${!underMin ? 'ok' : ''}`}>{!underMin ? <><IcoCheck s={13} sw={2.4} /> Suggested minimum met</> : `We suggest at least ${min}`}</span>
       </div>
 
       <div className="nom-grid">
@@ -83,7 +110,7 @@ function NominatePeers({ seedSelected, locked, changeNote, onSubmit, onHome }) {
               <Avatar name={p.name} initial={p.initials} cls="sm" />
               <div className="nom-card-main">
                 <span className="nom-card-name">{p.name}</span>
-                <span className="nom-card-rel">{p.dept} · {p.relation}</span>
+                <span className="nom-card-rel">{p.dept}</span>
               </div>
               <span className="nom-check" aria-hidden="true">{on && <IcoCheck s={14} sw={2.6} />}</span>
             </button>
@@ -95,10 +122,16 @@ function NominatePeers({ seedSelected, locked, changeNote, onSubmit, onHome }) {
         <span className="autosave"><span className="as-ico"><IcoSaved s={16} sw={1.8} /></span> Saved as you go</span>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={onHome}>Save &amp; close</button>
-          <button className="btn btn-primary" disabled={!enough} onClick={onSubmit}>Submit for approval</button>
+          <button className="btn btn-primary" disabled={!canSubmit} onClick={trySubmit}>Submit for approval</button>
         </div>
       </div>
-      {!enough && <p className="tf-scope-note" style={{ justifyContent: 'flex-end' }}><IcoInfo s={15} /> Nominate at least {min} people to submit. You can pick up to {max}.</p>}
+      {underMin && <p className="tf-scope-note" style={{ justifyContent: 'flex-end' }}><IcoInfo s={15} /> Fewer than {min} means your review may rely on your self-review alone — you can still submit.</p>}
+
+      {showFloorWarn && (
+        <BelowFloorModal min={min}
+          onBack={() => setShowFloorWarn(false)}
+          onSubmitAnyway={() => { setShowFloorWarn(false); onSubmit(); }} />
+      )}
     </div>
   );
 }
@@ -321,7 +354,6 @@ function ReviewReady({ onAcknowledge, onFlag }) {
             <span className="dm"><IcoClock s={15} sw={1.8} /> Acknowledge by {ACK_WINDOW.deadline}</span>
           </div>
         </div>
-        <div className="ph-actions"><button className="btn btn-secondary"><IcoDownload s={18} /> Download</button></div>
       </div>
 
       <ReviewDocument />
@@ -400,7 +432,6 @@ function ReviewLocked({ ack }) {
             <span className="dm"><IcoLock s={15} sw={1.8} /> Locked Jun 16, 2026</span>
           </div>
         </div>
-        <div className="ph-actions"><button className="btn btn-secondary"><IcoDownload s={18} /> Download</button></div>
       </div>
 
       {ack && (
@@ -427,9 +458,25 @@ function ReviewLocked({ ack }) {
 // Router for the Subject's "My review" section.
 function MyReview({ view, setView, ack, setAck, onHome, onToast }) {
   switch (view) {
+    // --- canon: no active review this cycle ---
+    case 'no-review':
+      return (
+        <div className="tf-page subj-narrow">
+          <div className="card pad">
+            <div className="state-block">
+              <span className="state-glyph"><IcoReview s={26} /></span>
+              <h3>No active review</h3>
+              <p>You don't have an active review this cycle yet.</p>
+              <button className="btn btn-secondary" onClick={onHome}>Back to home</button>
+            </div>
+          </div>
+        </div>
+      );
     // --- nomination ---
     case 'nominate':
       return <NominatePeers onSubmit={() => { setView('nominate-pending'); setTimeout(() => onToast('Nominations sent for approval.'), 150); }} onHome={onHome} />;
+    case 'nominate-floor':
+      return <NominatePeers seedSelected={['c1', 'c3']} floorWarnOpen onSubmit={() => { setView('nominate-pending'); setTimeout(() => onToast('Nominations sent for approval.'), 150); }} onHome={onHome} />;
     case 'nominate-pending':
       return <NominateStatus variant="pending" onHome={onHome} />;
     case 'nominate-approved':

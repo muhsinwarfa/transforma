@@ -42,18 +42,20 @@ const ME = {
   roles: ['subject', 'peer', 'approver', 'admin'], // structural roles held
 };
 
-// Primary nav — adapts to the roles a person holds.
+// Primary nav — adapts to the roles a person holds. 9 items (matches the app).
 // `roles: null` = always shown. Otherwise shown only if ME holds one.
 const NAV = [
-  { id: 'home',      label: 'Home',          icon: 'IcoHome',      roles: null },
-  { id: 'review',    label: 'My review',     icon: 'IcoReview',    roles: ['subject'] },
-  { id: 'peer',      label: 'Peer feedback', icon: 'IcoPeer',      roles: ['peer'],     count: 3 },
-  { id: 'approvals', label: 'Approvals',     icon: 'IcoApprovals', roles: ['approver'], count: 5,
+  { id: 'home',        label: 'Home',          icon: 'IcoHome',      roles: null },
+  { id: 'review',      label: 'My review',     icon: 'IcoReview',    roles: ['subject'] },
+  { id: 'peer',        label: 'Peer feedback', icon: 'IcoPeer',      roles: ['peer'],     count: 3 },
+  { id: 'approvals',   label: 'Approvals',     icon: 'IcoApprovals', roles: ['approver'], count: 4,
     labelToken: 'approver' },
+  { id: 'nominations', label: 'Nominations',   icon: 'IcoPeer',      roles: ['approver'], count: 2 },
   // admin-only sections (People Ops)
-  { id: 'cycles',    label: 'Cycle',         icon: 'IcoCycles',    roles: ['admin'] },
-  { id: 'roster',    label: 'Roster',        icon: 'IcoRoster',    roles: ['admin'] },
-  { id: 'settings',  label: 'Settings',      icon: 'IcoSettings',  roles: ['admin'] },
+  { id: 'cycles',      label: 'Cycle',         icon: 'IcoCycles',    roles: ['admin'] },
+  { id: 'roster',      label: 'Roster',        icon: 'IcoRoster',    roles: ['admin'] },
+  { id: 'reviews',     label: 'Reviews',       icon: 'IcoDoc',       roles: ['admin'] },
+  { id: 'settings',    label: 'Settings',      icon: 'IcoSettings',  roles: ['admin'] },
 ];
 
 // Home hub task groups — one per structural role the person holds.
@@ -98,14 +100,14 @@ const PEER_PROMPTS = [
 ];
 
 const PEER_REQUESTS = [
-  { id: 'pr1', subject: 'Deqa Osman', initials: 'DO', subjectRole: 'subject', relation: 'Same team · Clinical Ops',
+  { id: 'pr1', subject: 'Deqa Osman', initials: 'DO', subjectRole: 'subject', dept: 'Clinical Ops',
     deadline: 'Jun 12', daysLeft: 4, state: 'draft',
     seed: { pq1: 'We\u2019ve been on the Clinical Ops team together for about a year.', pq2: 'Deqa is the person who keeps a launch calm.', pq3: '', pq4: '' } },
-  { id: 'pr2', subject: 'Liban Farah', initials: 'LF', subjectRole: 'subject', relation: 'Worked together on intake redesign',
+  { id: 'pr2', subject: 'Liban Farah', initials: 'LF', subjectRole: 'subject', dept: 'Nursing',
     deadline: 'Jun 16', daysLeft: 8, state: 'new', seed: { pq1: '', pq2: '', pq3: '', pq4: '' } },
-  { id: 'pr3', subject: 'Yusuf Ali', initials: 'YA', subjectRole: 'subject', relation: 'They supported a project I led',
+  { id: 'pr3', subject: 'Yusuf Ali', initials: 'YA', subjectRole: 'subject', dept: 'Clinical Ops',
     deadline: 'Jun 20', daysLeft: 12, state: 'new', seed: { pq1: '', pq2: '', pq3: '', pq4: '' } },
-  { id: 'pr4', subject: 'Sahra Mohamed', initials: 'SM', subjectRole: 'subject', relation: 'Cross-team collaboration',
+  { id: 'pr4', subject: 'Sahra Mohamed', initials: 'SM', subjectRole: 'subject', dept: 'Pharmacy',
     deadline: 'Jun 4', daysLeft: -2, state: 'closed', seed: { pq1: '', pq2: '', pq3: '', pq4: '' } },
 ];
 
@@ -136,16 +138,15 @@ const NOMINATION = {
 const NOMINATION_QUEUE = [
   { id: 'nq1', subject: 'Hodan Abdi', initials: 'HA', subjectRole: 'subject', dept: 'Clinical Ops', state: 'pending',
     nominees: [
-      { name: 'Deqa Osman', initials: 'DO', relation: 'Same team' },
-      { name: 'Yusuf Ali', initials: 'YA', relation: 'Intake project' },
-      { name: 'Sahra Mohamed', initials: 'SM', relation: 'Cross-team' },
-      { name: 'Idil Warsame', initials: 'IW', relation: 'Worked together once' },
+      { name: 'Deqa Osman', initials: 'DO', dept: 'Clinical Ops', relation: 'Same team' },
+      { name: 'Yusuf Ali', initials: 'YA', dept: 'Clinical Ops', relation: 'Intake project' },
+      { name: 'Sahra Mohamed', initials: 'SM', dept: 'Pharmacy', relation: 'Cross-team' },
+      { name: 'Idil Warsame', initials: 'IW', dept: 'Operations', relation: 'Worked together once' },
     ] },
   { id: 'nq2', subject: 'Maryan Noor', initials: 'MN', subjectRole: 'subject', dept: 'Nursing', state: 'pending',
     nominees: [
-      { name: 'Liban Farah', initials: 'LF', relation: 'Same unit' },
-      { name: 'Omar Jama', initials: 'OJ', relation: 'Shared shifts' },
-      { name: 'Deqa Osman', initials: 'DO', relation: 'Cross-team' },
+      { name: 'Liban Farah', initials: 'LF', dept: 'Nursing', relation: 'Same unit' },
+      { name: 'Omar Jama', initials: 'OJ', dept: 'Pharmacy', relation: 'Shared shifts' },
     ] },
 ];
 
@@ -155,20 +156,22 @@ const NOMINATION_QUEUE = [
 // It never suggests a rating; the manager sets the rating themselves. The manager
 // edits the narrative freely (no justification step). Separation of duties:
 // reviews the approver contributed input to, or their own, NEVER appear here.
-// `queueState`: 'ready' (draft ready to decide) · 'flagged' (needs rework first)
-// · 'locked' (already finalized).
+// `queueState`: 'ready' · 'flagged' (needs rework first) · 'awaiting-ack' · 'locked'.
+// ANONYMITY FLOOR: peer feedback is only used when ≥3 peers respond. Below the
+// floor, NO surface shows a peer count — `belowFloor: true` replaces it.
 const APPROVER_QUEUE = [
   { id: 'aq1', subject: 'Hodan Abdi', initials: 'HA', subjectRole: 'subject', dept: 'Clinical Ops',
     queueState: 'ready', submitted: 'Jun 9', inputs: { self: true, peers: 3 }, draftKey: 'hodan' },
   { id: 'aq2', subject: 'Maryan Noor', initials: 'MN', subjectRole: 'subject', dept: 'Nursing',
-    queueState: 'flagged', submitted: 'Jun 8', inputs: { self: true, peers: 1 }, draftKey: 'maryan',
-    flagReason: 'Only one peer responded — the draft is thin and needs your judgment before it can be finalized.' },
+    queueState: 'flagged', submitted: 'Jun 8', inputs: { self: true, belowFloor: true }, draftKey: 'maryan' },
   { id: 'aq3', subject: 'Yusuf Ali', initials: 'YA', subjectRole: 'subject', dept: 'Clinical Ops',
     queueState: 'ready', submitted: 'Jun 10', inputs: { self: true, peers: 4 }, draftKey: 'generic' },
   { id: 'aq4', subject: 'Sahra Mohamed', initials: 'SM', subjectRole: 'subject', dept: 'Pharmacy',
-    queueState: 'ready', submitted: 'Jun 10', inputs: { self: true, peers: 2 }, draftKey: 'generic' },
+    queueState: 'ready', submitted: 'Jun 10', inputs: { self: true, peers: 3 }, draftKey: 'generic' },
   { id: 'aq5', subject: 'Said Ahmed', initials: 'SA', subjectRole: 'subject', dept: 'Pharmacy',
     queueState: 'locked', submitted: 'Jun 2', lockedOn: 'Jun 5', inputs: { self: true, peers: 3 }, draftKey: 'generic', rating: 'Meets expectations' },
+  { id: 'aq6', subject: 'Idil Warsame', initials: 'IW', subjectRole: 'subject', dept: 'Operations',
+    queueState: 'awaiting-ack', submitted: 'Jun 7', finalizedOn: 'Jun 9', inputs: { self: true, peers: 4 }, draftKey: 'generic', rating: 'Exceeds expectations' },
 ];
 
 // Draft review content the approver reads/edits. NARRATIVE ONLY — no rating.
@@ -184,7 +187,7 @@ const DRAFT_REVIEWS = {
   },
   maryan: {
     sections: [
-      { label: 'Summary', body: 'Maryan is dependable and steady on the floor. With only one peer response this cycle, this draft leans heavily on her self-review — worth weighing as you decide.' },
+      { label: 'Summary', body: 'Maryan is dependable and steady on the floor. Peer feedback fell below the confidentiality threshold this cycle, so this draft is built from her self-review alone — worth weighing as you decide.' },
       { label: 'Strengths', body: 'Calm under pressure and trusted by patients. Colleagues describe her as the person they want on a hard shift.' },
       { label: 'Areas to grow', body: '' },
       { label: 'Focus for next cycle', body: '' },
@@ -257,6 +260,53 @@ const CYCLE_DEFAULTS = [
   { id: 'ackwindow', label: 'Acknowledgement window',  value: '7 days',  unit: 'after a review is shared', desc: 'How long someone has to acknowledge before a review locks automatically.' },
 ];
 
+// ---- ADMIN · individual review access (A1/A2) ----
+// A gated capability, separate from the admin role. Every read is audited.
+const REVIEW_ACCESS = {
+  // demo flags — the Reviews screen states are driven by deep-link, not these
+  companyEnabled: true,
+  granted: true,
+};
+
+// Admins in this workspace (for the Review access grant list).
+const ADMIN_LIST = [
+  { id: 'ad1', name: 'Amina Yusuf',  initials: 'AY', email: 'amina.yusuf@workmail.com',  granted: true },
+  { id: 'ad2', name: 'Khadra Hassan', initials: 'KH', email: 'k.hassan@workmail.com',   granted: false },
+  { id: 'ad3', name: 'Bashir Omar',  initials: 'BO', email: 'b.omar@workmail.com',      granted: false },
+];
+
+// Finished reviews readable via the gated Reviews screen (A1).
+// Narrative + rating + self-review + employee response — NEVER peer feedback.
+const ADMIN_REVIEWS = [
+  { id: 'rv1', subject: 'Said Ahmed', initials: 'SA', dept: 'Pharmacy', status: 'locked', rating: 'Meets expectations', lockedOn: 'Jun 5, 2026',
+    ackOutcome: 'acknowledged', ackOn: 'Jun 5, 2026',
+    response: 'Thanks — this reads fair. I\u2019d note the Q1 stock audit shaped my availability more than the review lets on.',
+    selfAnswers: [
+      { q: 'What are you proud of this cycle?', a: 'Kept the pharmacy running through two staffing gaps without a single missed order.' },
+      { q: 'Where did you grow?', a: 'Got better at flagging risks early instead of absorbing them quietly.' },
+      { q: 'What got in the way?', a: 'The Q1 stock audit consumed most of February.' },
+      { q: 'What do you want to focus on next?', a: 'Mentoring the two new technicians.' },
+    ] },
+  { id: 'rv2', subject: 'Idil Warsame', initials: 'IW', dept: 'Operations', status: 'awaiting-ack', rating: 'Exceeds expectations', finalizedOn: 'Jun 9, 2026',
+    ackOutcome: null, response: null,
+    selfAnswers: [
+      { q: 'What are you proud of this cycle?', a: 'The vendor consolidation — three contracts merged into one without service gaps.' },
+      { q: 'Where did you grow?', a: 'Leading negotiations on my own.' },
+      { q: 'What got in the way?', a: 'Competing priorities in March.' },
+      { q: 'What do you want to focus on next?', a: 'Process documentation.' },
+    ] },
+  { id: 'rv3', subject: 'Maryan Noor', initials: 'MN', dept: 'Nursing', status: 'locked', rating: 'Meets expectations', lockedOn: 'Jun 8, 2026',
+    flagged: true, flagNote: 'Finalized below the peer-feedback confidentiality threshold — drawn from the self-review only.',
+    ackOutcome: 'flagged', ackOn: 'Jun 8, 2026',
+    response: 'I don\u2019t agree that delegation is the growth area — I handed off the intake triage in April. I\u2019d like that on record.',
+    selfAnswers: [
+      { q: 'What are you proud of this cycle?', a: 'Holding the night rotation together during flu season.' },
+      { q: 'Where did you grow?', a: 'Handed off intake triage and coached the replacement.' },
+      { q: 'What got in the way?', a: 'Chronic understaffing on nights.' },
+      { q: 'What do you want to focus on next?', a: 'A formal charge-nurse qualification.' },
+    ] },
+];
+
 // Roster sample (for the table/list pattern demo)
 const ROSTER = [
   { name: 'Hodan Abdi',   role: 'subject',  email: 'h.abdi@workmail.com',  status: 'in-review', dept: 'Clinical Ops' },
@@ -266,4 +316,4 @@ const ROSTER = [
   { name: 'Liban Farah',  role: 'approver', email: 'l.farah@workmail.com', status: 'in-review', dept: 'Nursing' },
 ];
 
-Object.assign(window, { TENANT, STATUS, ME, NAV, HUB, ROSTER, PEER_PROMPTS, PEER_REQUESTS, NOMINATION, NOMINATION_QUEUE, APPROVER_QUEUE, DRAFT_REVIEWS, RATING_OPTIONS, CYCLE_MONITOR, ROSTER_VALID, ROSTER_ERRORS, ROSTER_IMPORT, ROLE_CONFIG, CYCLE_DEFAULTS });
+Object.assign(window, { TENANT, STATUS, ME, NAV, HUB, ROSTER, PEER_PROMPTS, PEER_REQUESTS, NOMINATION, NOMINATION_QUEUE, APPROVER_QUEUE, DRAFT_REVIEWS, RATING_OPTIONS, CYCLE_MONITOR, ROSTER_VALID, ROSTER_ERRORS, ROSTER_IMPORT, ROLE_CONFIG, CYCLE_DEFAULTS, REVIEW_ACCESS, ADMIN_LIST, ADMIN_REVIEWS });

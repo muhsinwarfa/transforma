@@ -46,6 +46,8 @@ function CanvasApp() {
 
       <DCSection id="subject" title="Subject track — your own review" subtitle="Mobile-first. Nominate peers → (self-review ∥ peer feedback, in parallel) → in review → reveal & acknowledge/flag → locked (response stored beside). Walkable via 'My review'.">
         <DCArtboard id="sj-nom" label="Nominate peer reviewers · start · 1100×900" width={1100} height={900}><Frame hash="#app/review/nominate" /></DCArtboard>
+        <DCArtboard id="sj-nom-floor" label="Below-floor warning · submit with fewer than min · 900×820" width={900} height={820}><Frame hash="#app/review/nominate-floor" /></DCArtboard>
+        <DCArtboard id="sj-no-review" label="No active review (canon empty) · 560×560" width={560} height={560}><Frame hash="#app/review/no-review" /></DCArtboard>
         <DCArtboard id="sj-nom-pending" label="Nominations · pending approval · 460×620" width={460} height={620}><Frame hash="#app/review/nominate-pending" /></DCArtboard>
         <DCArtboard id="sj-nom-changes" label="Nominations · changes requested · 460×620" width={460} height={620}><Frame hash="#app/review/nominate-changes" /></DCArtboard>
         <DCArtboard id="sj-self-m" label="Self-review · in progress (parallel note) · mobile · 390×940" width={390} height={940}><Frame hash="#app/review/self-progress" /></DCArtboard>
@@ -66,12 +68,15 @@ function CanvasApp() {
         <DCArtboard id="pe-submitted" label="Submitted · confirmation (more to do) · 520×760" width={520} height={760}><Frame hash="#app/peer/submitted" /></DCArtboard>
         <DCArtboard id="pe-closed" label="Closed · window passed · 520×620" width={520} height={620}><Frame hash="#app/peer/closed" /></DCArtboard>
         <DCArtboard id="pe-decline" label="Decline · not the right reviewer · 560×760" width={560} height={760}><Frame hash="#app/peer/decline" /></DCArtboard>
+        <DCArtboard id="pe-declined" label="Declined · confirmation (canon) · 520×560" width={520} height={560}><Frame hash="#app/peer/declined" /></DCArtboard>
+        <DCArtboard id="pe-unavail" label="Not available · foreign/handled (canon) · 520×560" width={520} height={560}><Frame hash="#app/peer/unavailable" /></DCArtboard>
       </DCSection>
 
       <DCSection id="approver" title="Approver track — review, rate & lock" subtitle="Desktop-first dense workspace; reflows to a single column. Approve peer nominations, then: queue (normal vs flagged) → workspace (edit narrative freely + set the rating yourself; no justification step) → finalize → awaiting acknowledgement / locked. Walkable via 'Approvals'.">
         <DCArtboard id="ap-noms" label="Peer nominations · to approve · 1040×720" width={1040} height={720}><Frame hash="#app/approvals/nominations" /></DCArtboard>
         <DCArtboard id="ap-nom-one" label="Nominations · one report (approve / request changes) · 760×900" width={760} height={900}><Frame hash="#app/approvals/nomination" /></DCArtboard>
-        <DCArtboard id="ap-queue-d" label="Review queue · flagged surfaced first · desktop · 1240×900" width={1240} height={900}><Frame hash="#app/approvals/queue" /></DCArtboard>
+        <DCArtboard id="ap-queue-d" label="Review queue · flagged first · Decided section · desktop · 1240×980" width={1240} height={980}><Frame hash="#app/approvals/queue" /></DCArtboard>
+        <DCArtboard id="ap-queue-empty" label="Queue · all caught up (canon) · 1040×720" width={1040} height={720}><Frame hash="#app/approvals/queue-empty" /></DCArtboard>
         <DCArtboard id="ap-queue-m" label="Queue · mobile reflow · 390×880" width={390} height={880}><Frame hash="#app/approvals/queue" /></DCArtboard>
         <DCArtboard id="ap-work-d" label="Workspace · narrative draft + set-rating rail · desktop · 1240×1000" width={1240} height={1000}><Frame hash="#app/approvals/workspace" /></DCArtboard>
         <DCArtboard id="ap-work-m" label="Workspace · mobile reflow · 390×1180" width={390} height={1180}><Frame hash="#app/approvals/workspace" /></DCArtboard>
@@ -80,14 +85,24 @@ function CanvasApp() {
 
       <DCSection id="admin" title="Administrator track — People Ops" subtitle="Desktop-first console; reflows to single column. Cycle setup → roster CSV import (success + errors) → monitoring dashboard. Settings & cycle management: role labels · company defaults · mid-cycle actions (reassign approver, extend deadline, withdraw). Walkable via Cycle / Roster / Settings.">
         <DCArtboard id="ad-monitor" label="Cycle monitoring · aggregate dashboard · desktop · 1240×1080" width={1240} height={1080}><Frame hash="#app/cycles/monitor" /></DCArtboard>
-        <DCArtboard id="ad-setup" label="Cycle setup · configure form · 1040×900" width={1040} height={900}><Frame hash="#app/cycles/setup" /></DCArtboard>
+        <DCArtboard id="ad-cycle-none" label="Cycle · none yet (canon) · 900×600" width={900} height={600}><Frame hash="#app/cycles/empty" /></DCArtboard>
+        <DCArtboard id="ad-setup" label="Cycle setup · form + Start-cycle card · 1040×1120" width={1040} height={1120}><Frame hash="#app/cycles/setup" /></DCArtboard>
         <DCArtboard id="ad-roster-idle" label="Roster · CSV upload start · 1040×640" width={1040} height={640}><Frame hash="#app/roster/idle" /></DCArtboard>
         <DCArtboard id="ad-roster-ok" label="Roster · imported (N participants) · 1040×860" width={1040} height={860}><Frame hash="#app/roster/success" /></DCArtboard>
         <DCArtboard id="ad-roster-err" label="Roster · validation errors (per-row report) · 1040×880" width={1040} height={880}><Frame hash="#app/roster/error" /></DCArtboard>
         <DCArtboard id="ad-labels" label="Settings · role labels · 1040×860" width={1040} height={860}><Frame hash="#app/settings/labels" /></DCArtboard>
+        <DCArtboard id="ad-access" label="Settings · Review access · switch + grants · 1040×860" width={1040} height={860}><Frame hash="#app/settings/access" /></DCArtboard>
         <DCArtboard id="ad-defaults" label="Settings · company defaults · 1040×800" width={1040} height={800}><Frame hash="#app/settings/defaults" /></DCArtboard>
         <DCArtboard id="ad-actions" label="Settings · mid-cycle actions · 1040×740" width={1040} height={740}><Frame hash="#app/settings/actions" /></DCArtboard>
         <DCArtboard id="ad-monitor-m" label="Monitoring · mobile reflow · 390×1080" width={390} height={1080}><Frame hash="#app/cycles/monitor" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="admin-reviews" title="Administrator — Reviews (gated reader)" subtitle="A sealed-record reader: an admin holding a granted capability can read a finished review — narrative, rating, self-review, employee response — never peer feedback. Every view is audited. Five states.">
+        <DCArtboard id="rv-off" label="Reviews · feature off (workspace switch) · 900×600" width={900} height={600}><Frame hash="#app/reviews/off" /></DCArtboard>
+        <DCArtboard id="rv-nogrant" label="Reviews · capability not granted · 900×600" width={900} height={600}><Frame hash="#app/reviews/nogrant" /></DCArtboard>
+        <DCArtboard id="rv-empty" label="Reviews · none finished yet · 900×600" width={900} height={600}><Frame hash="#app/reviews/empty" /></DCArtboard>
+        <DCArtboard id="rv-list" label="Reviews · list (status · rating · locked date) · 1040×780" width={1040} height={780}><Frame hash="#app/reviews/list" /></DCArtboard>
+        <DCArtboard id="rv-detail" label="Reviews · sealed-record detail (audit notice) · 940×1400" width={940} height={1400}><Frame hash="#app/reviews/detail" /></DCArtboard>
       </DCSection>
 
       <DCSection id="auth" title="Auth surface — every state" subtitle="Login (with inactive SSO slot), the three activation-link landings, and set / reset / forgot password. Mobile-first, scales to a split-panel on desktop.">

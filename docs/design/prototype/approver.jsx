@@ -4,15 +4,19 @@
 const { useState: useStateAp, useEffect: useEffectAp, useRef: useRefAp } = React;
 
 function qById(id) { return APPROVER_QUEUE.find((q) => q.id === id) || APPROVER_QUEUE[0]; }
-function inputsText(inp) { return `Self-review · ${inp.peers} peer ${inp.peers === 1 ? 'response' : 'responses'}`; }
+// ANONYMITY FLOOR: below the floor, never render a peer count.
+function inputsText(inp) {
+  if (inp.belowFloor) return 'Self-review only · peer feedback below the confidentiality threshold';
+  return `Self-review · ${inp.peers} peer ${inp.peers === 1 ? 'response' : 'responses'}`;
+}
 
 // =============================================================
 // QUEUE
 // =============================================================
-function ApproverQueue({ onOpen }) {
-  const ready = APPROVER_QUEUE.filter((q) => q.queueState === 'ready');
-  const flagged = APPROVER_QUEUE.filter((q) => q.queueState === 'flagged');
-  const locked = APPROVER_QUEUE.filter((q) => q.queueState === 'locked');
+function ApproverQueue({ onOpen, empty }) {
+  const ready = empty ? [] : APPROVER_QUEUE.filter((q) => q.queueState === 'ready');
+  const flagged = empty ? [] : APPROVER_QUEUE.filter((q) => q.queueState === 'flagged');
+  const decided = empty ? [] : APPROVER_QUEUE.filter((q) => q.queueState === 'locked' || q.queueState === 'awaiting-ack');
   const pending = [...flagged, ...ready]; // flagged surface first
 
   return (
@@ -28,9 +32,18 @@ function ApproverQueue({ onOpen }) {
       <div className="aq-summary">
         <div className="aq-stat"><div className="aqs-num">{ready.length + flagged.length}</div><div className="aqs-label"><IcoInbox s={15} sw={1.8} /> Awaiting your decision</div></div>
         <div className="aq-stat flag"><div className="aqs-num">{flagged.length}</div><div className="aqs-label"><IcoFlag s={15} sw={1.8} /> Flagged — need rework</div></div>
-        <div className="aq-stat"><div className="aqs-num">{locked.length}</div><div className="aqs-label"><IcoLock s={15} sw={1.8} /> Locked this cycle</div></div>
+        <div className="aq-stat"><div className="aqs-num">{decided.length}</div><div className="aqs-label"><IcoLock s={15} sw={1.8} /> Decided this cycle</div></div>
       </div>
 
+      {pending.length === 0 ? (
+        <div className="card pad">
+          <div className="state-block">
+            <span className="state-glyph"><IcoCheckCircle s={26} /></span>
+            <h3>All caught up</h3>
+            <p>All caught up. No reviews are waiting on your decision right now.</p>
+          </div>
+        </div>
+      ) : (
       <div className="aq-list card" style={{ padding: 0, overflow: 'hidden' }}>
         {pending.map((q) => (
           <button key={q.id} className={`aq-row ${q.queueState === 'flagged' ? 'flagged' : ''}`} onClick={() => onOpen(q.id)}>
@@ -55,19 +68,20 @@ function ApproverQueue({ onOpen }) {
           </button>
         ))}
       </div>
+      )}
 
-      {locked.length > 0 && (
+      {decided.length > 0 && (
         <>
           <div className="hub-group-head" style={{ marginTop: 28 }}>
-            <div className="hub-group-titles"><h2 className="hub-group-title" style={{ fontSize: 15 }}>Completed</h2></div>
+            <div className="hub-group-titles"><h2 className="hub-group-title" style={{ fontSize: 15 }}>Decided</h2></div>
           </div>
           <div className="aq-list card" style={{ padding: 0, overflow: 'hidden' }}>
-            {locked.map((q) => (
+            {decided.map((q) => (
               <button key={q.id} className="aq-row locked-row" onClick={() => onOpen(q.id)}>
                 <Avatar name={q.subject} initial={q.initials} cls="lg" />
                 <div className="aq-row-main">
-                  <div className="aq-row-top"><span className="aq-row-name">{q.subject}</span><StatusBadge status="locked" sm /></div>
-                  <div className="aq-row-meta"><span className="am">{q.dept}</span><span className="am"><IcoLock s={13} sw={1.8} /> Locked {q.lockedOn}</span></div>
+                  <div className="aq-row-top"><span className="aq-row-name">{q.subject}</span><StatusBadge status={q.queueState === 'locked' ? 'locked' : 'awaiting-ack'} sm /></div>
+                  <div className="aq-row-meta"><span className="am">{q.dept}</span><span className="am">{q.queueState === 'locked' ? <><IcoLock s={13} sw={1.8} /> Locked {q.lockedOn}</> : <><IcoClock s={13} sw={1.8} /> Finalized {q.finalizedOn}</>}</span></div>
                 </div>
                 <div className="aq-row-right"><span className="aq-row-cta">View <IcoArrowRight s={16} /></span></div>
               </button>
@@ -122,14 +136,16 @@ function ApproverWorkspace({ item, onBack, onFinalized, onToast }) {
         </div>
         <div className="aw-inputs">
           <span className="input-chip"><IcoReview s={14} sw={1.7} /> Self-review</span>
-          <span className="input-chip"><IcoPeer s={14} sw={1.7} /> {item.inputs.peers} peer {item.inputs.peers === 1 ? 'response' : 'responses'}</span>
+          {item.inputs.belowFloor
+            ? <span className="input-chip"><IcoPeer s={14} sw={1.7} /> Peer feedback below threshold</span>
+            : <span className="input-chip"><IcoPeer s={14} sw={1.7} /> {item.inputs.peers} peer {item.inputs.peers === 1 ? 'response' : 'responses'}</span>}
         </div>
       </div>
 
       {isFlagged && (
         <div className="flag-banner">
           <span className="ico"><IcoFlag s={18} /></span>
-          <div className="fb-body"><strong>This review is flagged.</strong> {item.flagReason} Edit the draft to fill the gaps, set a rating, then finalize.</div>
+          <div className="fb-body"><strong>This review is flagged.</strong> Peer feedback didn't meet the confidentiality threshold, so the draft is built from the self-review only. Review it carefully, edit as needed, set a rating, then finalize.</div>
         </div>
       )}
 
@@ -186,7 +202,7 @@ function ApproverWorkspace({ item, onBack, onFinalized, onToast }) {
 
             <div className="decision-foot">
               <button className="btn btn-primary block" disabled={!canFinalize} onClick={() => setShowConfirm(true)}>
-                <IcoLock s={17} /> Finalize &amp; lock
+                <IcoLock s={17} /> Finalize &amp; reveal
               </button>
               {!canFinalize && <p className="decision-meta"><IcoInfo s={14} /> Set a rating to finalize. {anyEdited ? 'Your narrative edits are saved.' : ''}</p>}
               {canFinalize && <p className="decision-meta"><IcoInfo s={14} /> {item.subject.split(' ')[0]} will be able to read and acknowledge this once you finalize.</p>}
@@ -222,11 +238,11 @@ function FinalizeModal({ item, rating, onCancel, onConfirm }) {
         </div>
         <div className="modal-irreversible">
           <IcoInfo s={16} sw={1.9} />
-          <span>The review moves to <strong>Awaiting acknowledgement</strong>. It locks permanently once {item.subject.split(' ')[0]} acknowledges, or when the acknowledgement window closes.</span>
+          <span>The review moves to Awaiting acknowledgement and is revealed to {item.subject.split(' ')[0]}. It locks permanently once {item.subject.split(' ')[0]} acknowledges, or when the acknowledgement window closes — not before.</span>
         </div>
         <div className="modal-actions">
           <button className="btn btn-ghost" ref={ref} onClick={onCancel}>Keep editing</button>
-          <button className="btn btn-primary" onClick={onConfirm}><IcoCheck s={17} sw={2.2} /> Finalize &amp; send</button>
+          <button className="btn btn-primary" onClick={onConfirm}><IcoCheck s={17} sw={2.2} /> Finalize &amp; reveal</button>
         </div>
       </div>
     </div>
@@ -249,8 +265,8 @@ function ApproverLocked({ item, rating, onBack }) {
         <div className="lr-body">
           <div className="lr-title">{isLocked ? 'This review is locked' : 'Finalized — awaiting acknowledgement'}</div>
           <div className="lr-meta">{isLocked
-            ? `Read-only · ${item.subject} has acknowledged · locked ${item.lockedOn || 'Jun 16'}.`
-            : `Read-only for you now · ${item.subject} has been notified to read and acknowledge it.`}</div>
+            ? 'Read-only and permanent. No further edits are possible.'
+            : `Read-only for you now · ${item.subject.split(' ')[0]} has been notified to read and acknowledge it. It locks once they do, or when the window closes.`}</div>
         </div>
         <StatusBadge status={isLocked ? 'locked' : 'awaiting-ack'} />
       </div>
@@ -266,7 +282,6 @@ function ApproverLocked({ item, rating, onBack }) {
       <div className="draft-card is-locked">
         <div className="draft-card-head">
           <div className="dch-left"><h2 className="draft-card-title">Final review</h2><StatusBadge status={isLocked ? 'locked' : 'awaiting-ack'} sm /></div>
-          <button className="btn btn-secondary sm"><IcoDownload s={15} /> Download</button>
         </div>
         <div className="draft-body">
           {baseDraft.sections.filter((s) => s.body).map((s, i) => (
@@ -345,10 +360,16 @@ function NominationDetail({ item, onApprove, onRequestChanges, onBack }) {
           {item.nominees.map((p, i) => (
             <div className="nom-review-row" key={i}>
               <Avatar name={p.name} initial={p.initials} cls="sm" />
-              <div className="nrr-main"><span className="nrr-name">{p.name}</span><span className="nrr-rel">{p.relation}</span></div>
+              <div className="nrr-main"><span className="nrr-name">{p.name}</span><span className="nrr-rel">{p.dept}</span></div>
             </div>
           ))}
         </div>
+        {item.nominees.length < NOMINATION.min && (
+          <div className="notice warn" style={{ marginTop: 14 }}>
+            <span className="n-ico"><IcoAlert s={18} sw={1.9} /></span>
+            <span>This is below the confidentiality floor of {NOMINATION.min} peers. You can still approve — if too few submit, the review draws on the self-review only.</span>
+          </div>
+        )}
       </div>
 
       {mode === 'changes' ? (
@@ -379,13 +400,13 @@ function ApproverTrack({ view, setView, activeId, setActiveId, rating, setRating
   const openItem = (id) => {
     const q = qById(id);
     setActiveId(id);
-    if (q.queueState === 'locked') { setView('locked'); }
+    if (q.queueState === 'locked' || q.queueState === 'awaiting-ack') { setView('locked'); }
     else setView('workspace');
   };
   const nomById = (id) => NOMINATION_QUEUE.find((n) => n.id === id) || NOMINATION_QUEUE[0];
   switch (view) {
     case 'workspace':
-      if (item.queueState === 'locked') return <ApproverLocked item={item} rating={rating} onBack={() => setView('queue')} />;
+      if (item.queueState === 'locked' || item.queueState === 'awaiting-ack') return <ApproverLocked item={item} rating={rating} onBack={() => setView('queue')} />;
       return <ApproverWorkspace item={item} onBack={() => setView('queue')}
         onFinalized={(id, r) => { setRating(r); setView('locked'); setTimeout(() => onToast(`${item.subject}'s review finalized — sent to acknowledge.`), 150); }}
         onToast={onToast} />;
@@ -397,6 +418,8 @@ function ApproverTrack({ view, setView, activeId, setActiveId, rating, setRating
       return <NominationDetail item={nomById(nomActive)} onBack={() => setView('nominations')}
         onApprove={() => { setView('nominations'); setTimeout(() => onToast('Nominations approved.'), 150); }}
         onRequestChanges={() => { setView('nominations'); setTimeout(() => onToast('Sent back with your note.'), 150); }} />;
+    case 'queue-empty':
+      return <ApproverQueue onOpen={openItem} empty />;
     case 'queue':
     default:
       return <ApproverQueue onOpen={openItem} />;
