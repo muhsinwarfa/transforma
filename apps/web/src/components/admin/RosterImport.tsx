@@ -5,14 +5,13 @@ import { useToast } from "@/components/Toast";
 import { Avatar } from "@/components/atoms";
 import { IcoAlert, IcoCheck, IcoDownload, IcoSpinner } from "@/components/atoms/icons";
 import { IcoUpload } from "@/components/admin/icons";
-import { importRoster, validateRoster, type ImportResult, type RosterRow } from "@/app/(app)/admin/actions";
+import { RosterMembers } from "@/components/admin/RosterMembers";
+import { importRoster, validateRoster, type ImportResult, type RosterMemberRow, type RosterRow } from "@/app/(app)/admin/actions";
 
 // A3 · two-phase roster import. The dropzone runs a READ-ONLY validate pass
 // (validateRoster → preview); nothing is written until the admin clicks
 // "Confirm & add to cycle", which runs the committing importRoster (insert + audit).
 type State = "idle" | "validating" | "preview" | "confirmed" | "error";
-
-const TEMPLATE = "name,email,role,manager,department\n";
 
 function download(filename: string, text: string) {
   const blob = new Blob([text], { type: "text/csv" });
@@ -27,9 +26,11 @@ function download(filename: string, text: string) {
 export function RosterImport({
   cycleName,
   roleLabels,
+  members,
 }: {
   cycleName: string;
   roleLabels: Record<string, string>;
+  members: RosterMemberRow[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -38,6 +39,14 @@ export function RosterImport({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [csv, setCsv] = useState("");
   const [pending, start] = useTransition();
+
+  // CSV template — sample rows in the tenant's own role words (the importer also
+  // accepts the structural names + common aliases). `manager_email` links a person to
+  // their manager; leave it blank for top-level people.
+  const template =
+    "name,email,role,manager_email,department\n" +
+    `Jordan Lee,jordan.lee@example.com,${roleLabels.subject || "subject"},sam.rivera@example.com,Clinical Operations\n` +
+    `Sam Rivera,sam.rivera@example.com,${roleLabels.approver || "approver"},,Clinical Operations\n`;
 
   // Phase 1 — read-only validation. Writes nothing; renders the preview or errors.
   const validate = (csvText: string) => {
@@ -83,6 +92,13 @@ export function RosterImport({
     setCsv("");
   };
 
+  const copyLink = (link: string) => {
+    void navigator.clipboard?.writeText(link).then(
+      () => toast("Set-up link copied — paste it wherever you reach this person."),
+      () => toast("Couldn't copy automatically — select the link and copy it.", { kind: "warn" }),
+    );
+  };
+
   const errorReport = (errors: ImportResult["errors"]) =>
     "row,column,value,message\n" + errors.map((e) => `${e.row},${e.col},"${e.value}","${e.msg}"`).join("\n") + "\n";
 
@@ -126,14 +142,14 @@ export function RosterImport({
               <IcoUpload s={26} />
             </span>
             <h3>Drop your roster CSV here</h3>
-            <p>Or click to browse. Columns: name, email, role, manager, department.</p>
+            <p>Or click to browse. Columns: name, email, role, manager_email, department.</p>
             <span className="dz-formats">roster.csv · max 5 MB</span>
           </button>
           <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
             <button
               className="btn btn-ghost sm"
               onClick={() => {
-                download("roster-template.csv", TEMPLATE);
+                download("roster-template.csv", template);
                 toast("Template downloaded.");
               }}
             >
@@ -223,12 +239,48 @@ export function RosterImport({
               </button>
             </div>
           ) : (
-            <div className="notice info" style={{ marginTop: 16 }}>
-              <span className="n-ico">
-                <IcoCheck s={18} />
-              </span>
-              <span>Added to {cycleName}. Upload another file or head back to the cycle.</span>
-            </div>
+            <>
+              {result.invites && result.invites.length > 0 ? (
+                <div className="card pad" style={{ marginTop: 16 }}>
+                  <h3 style={{ margin: "0 0 4px", fontSize: 15 }}>Send everyone their set-up link</h3>
+                  <p className="t-body-sm" style={{ color: "var(--ink-3)", margin: "0 0 12px" }}>
+                    Each person was emailed a link to set their password (best-effort). To be sure they get in, copy
+                    their link below and share it through your own channel. Links are valid for 24 hours — you can
+                    resend later from the roster.
+                  </p>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {result.invites.map((inv) => (
+                      <div
+                        key={inv.email}
+                        style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexWrap: "wrap", borderTop: "1px solid var(--hairline)", paddingTop: 8 }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div className="cell-strong">{inv.name}</div>
+                          <div className="cell-muted" style={{ fontSize: 13 }}>
+                            {inv.email} · {inv.emailed ? "emailed ✓" : "email not sent — share the link"}
+                          </div>
+                        </div>
+                        {inv.link ? (
+                          <button className="btn btn-secondary sm" onClick={() => copyLink(inv.link as string)}>
+                            <IcoDownload s={14} /> Copy set-up link
+                          </button>
+                        ) : (
+                          <span className="cell-muted" style={{ fontSize: 13 }}>
+                            {inv.error ?? "Link unavailable — use Resend on the roster"}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div className="notice info" style={{ marginTop: 16 }}>
+                <span className="n-ico">
+                  <IcoCheck s={18} />
+                </span>
+                <span>Added to {cycleName}. Upload another file or head back to the cycle.</span>
+              </div>
+            </>
           )}
         </>
       ) : null}
@@ -278,6 +330,8 @@ export function RosterImport({
           </div>
         </>
       ) : null}
+
+      <RosterMembers members={members} roleLabels={roleLabels} />
     </div>
   );
 }

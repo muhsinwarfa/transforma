@@ -18,10 +18,11 @@ export function ResetView({ code }: { code: string | null }) {
           </Link>
         }
       >
-        <span className="auth-eyebrow">Reset password</span>
-        <h1 className="auth-h">This reset link isn&apos;t valid.</h1>
+        <span className="auth-eyebrow">Set password</span>
+        <h1 className="auth-h">This link isn&apos;t valid anymore.</h1>
         <p className="auth-sub">
-          Reset links are single-use and expire after 1 hour. Request a new one to continue.
+          Set-up and reset links are single-use and expire after 24 hours. Request a new one to continue — or ask your
+          administrator to resend your invite.
         </p>
         <div className="auth-form">
           <Link href="/forgot">
@@ -44,12 +45,12 @@ export function ResetView({ code }: { code: string | null }) {
         </span>
       }
     >
-      <span className="auth-eyebrow">Reset password</span>
-      <h1 className="auth-h">Choose a new password.</h1>
+      <span className="auth-eyebrow">Set password</span>
+      <h1 className="auth-h">Choose your password.</h1>
       <p className="auth-sub">
         Pick something you haven&apos;t used here before. You&apos;ll use it to sign in next time.
       </p>
-      <SetPasswordForm cta="Reset password" busyLabel="Saving…" onSubmit={onSubmit} />
+      <SetPasswordForm cta="Set password" busyLabel="Saving…" onSubmit={onSubmit} />
     </AuthShell>
   );
 }

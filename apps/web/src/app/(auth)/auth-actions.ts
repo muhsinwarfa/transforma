@@ -13,8 +13,18 @@ export async function signIn(_prev: AuthFormState | null, formData: FormData): P
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const rls = await createRlsClient();
-  const { error } = await rls.auth.signInWithPassword({ email, password });
+  const { data, error } = await rls.auth.signInWithPassword({ email, password });
   if (error) return { error: "Incorrect email or password." };
+  // First successful sign-in activates an invited account (status invited → active),
+  // so the admin roster can distinguish who has actually set up + signed in.
+  if (data.user?.id) {
+    await createServiceRoleClient()
+      .from("accounts")
+      .update({ status: "active" })
+      .eq("auth_user_id", data.user.id)
+      .eq("status", "invited")
+      .then(undefined, () => {});
+  }
   redirect("/home");
 }
 
