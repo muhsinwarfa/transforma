@@ -34,6 +34,14 @@ const U_SUBJ_A = "e1000000-0000-0000-0000-0000000000aa"; // auth user for the su
 const U_STRANGER = "e1000000-0000-0000-0000-0000000000ff"; // auth user for the injection test
 const REV_A = "c1000000-0000-0000-0000-0000000000aa";
 const REV_B = "c1000000-0000-0000-0000-0000000000bb";
+// imported-roster GAP regression: a subject whose review has approver_id NULL
+// (nomination phase) + a manager that is itself a roster member.
+const SG = "a1000000-0000-0000-0000-0000000000a7";
+const MG = "a1000000-0000-0000-0000-0000000000a8";
+const GP1 = "a1000000-0000-0000-0000-0000000000a9";
+const GP2 = "a1000000-0000-0000-0000-0000000000b9";
+const U_SG = "e1000000-0000-0000-0000-0000000000a7";
+const REV_G = "c1000000-0000-0000-0000-0000000000a7";
 
 let epg: EmbeddedPostgres;
 let client: pg.Client;
@@ -85,6 +93,27 @@ insert into nominations (company_id,cycle_id,employee_id,nominee_account_id,stat
   ('${C}','${CY}','${SUBJ_A}','${PA3}','pending'),
   ('${C}','${CY}','${SUBJ_B}','${PB1}','pending'),
   ('${C}','${CY}','${SUBJ_B}','${PB2}','pending')
+  on conflict do nothing;
+
+-- imported-roster GAP fixtures: subject SG with a review whose approver_id is NULL
+-- (the nomination-phase condition that broke nomination_candidates), and a manager
+-- MG that is itself a roster member (so the decision-3 exclusion is non-vacuous).
+insert into auth.users (id,email) values ('${U_SG}','sg@riverbend.test') on conflict do nothing;
+insert into accounts (id, company_id, email, display_name, status, auth_user_id) values
+  ('${SG}','${C}','sg@riverbend.test','Subject G','active','${U_SG}'),
+  ('${MG}','${C}','mg2@riverbend.test','Manager G','active', null),
+  ('${GP1}','${C}','gp1@riverbend.test','Peer G1','active', null),
+  ('${GP2}','${C}','gp2@riverbend.test','Peer G2','active', null)
+  on conflict do nothing;
+insert into account_roles (account_id, role, company_id) values ('${SG}','subject','${C}') on conflict do nothing;
+insert into roster_members (company_id, cycle_id, account_id, email, display_name, manager_account_id) values
+  ('${C}','${CY}','${SG}','sg@riverbend.test','Subject G','${MG}'),
+  ('${C}','${CY}','${MG}','mg2@riverbend.test','Manager G', null),
+  ('${C}','${CY}','${GP1}','gp1@riverbend.test','Peer G1','${MG}'),
+  ('${C}','${CY}','${GP2}','gp2@riverbend.test','Peer G2','${MG}')
+  on conflict do nothing;
+insert into reviews (id,company_id,cycle_id,employee_id,approver_id,status) values
+  ('${REV_G}','${C}','${CY}','${SG}', null, 'draft')
   on conflict do nothing;
 `;
 
@@ -355,5 +384,25 @@ describe("PROC-03 close_feedback (floor at the compile path)", () => {
         [C, CY, STRANGER, REV_A],
       ),
     ).rejects.toThrow(/below_floor_no_payload/);
+  });
+});
+
+// ── nomination_candidates — imported-roster gap (the empty-pool launch bug) ──
+// Regression for: reviews.approver_id is NULL during the nomination phase, and the
+// decision-3 filter `<> approver_id` made `x <> NULL` → NULL → the pool rendered
+// EMPTY for every subject. The fix excludes the SUBJECT'S MANAGER via IS DISTINCT
+// FROM (NULL-safe). This proves the pool is non-empty and the manager is excluded.
+describe("nomination_candidates returns a non-empty pool when approver_id is NULL", () => {
+  it("subject sees (roster minus self minus manager) > 0 even with an unresolved approver", async () => {
+    const rows = (
+      await asAuthenticated(U_SG, () =>
+        client.query<{ candidate_account_id: string }>("select candidate_account_id from nomination_candidates"),
+      )
+    ).rows.map((r) => r.candidate_account_id);
+    expect(rows.length).toBeGreaterThan(0); // the exact gap: never an empty pool
+    expect(rows).not.toContain(SG); // never self
+    expect(rows).not.toContain(MG); // never the subject's manager (decision #3)
+    expect(rows).toContain(GP1); // the manager IS a roster member, so its exclusion is real
+    expect(rows).toContain(GP2);
   });
 });

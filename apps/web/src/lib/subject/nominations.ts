@@ -16,6 +16,8 @@ export interface NominationData {
   selectedIds: string[];
   candidates: Candidate[];
   managerNote: string | null;
+  /** real roster-approval timestamp (rosters.approved_at); null until approved */
+  approvedAt: string | null;
   min: number;
   max: number;
 }
@@ -33,7 +35,7 @@ export async function getNominationData(): Promise<NominationData | null> {
     await Promise.all([
       supabase.from("nomination_candidates").select("candidate_account_id, display_name, department").eq("cycle_id", cycleId),
       supabase.from("nominations").select("nominee_account_id, status, manager_note").eq("cycle_id", cycleId),
-      supabase.from("rosters").select("id").eq("cycle_id", cycleId).maybeSingle(),
+      supabase.from("rosters").select("id, approved_at").eq("cycle_id", cycleId).maybeSingle(),
       supabase.schema("app").rpc("effective_threshold", { p_cycle: cycleId }),
       supabase.schema("app").rpc("effective_setting", { p_cycle: cycleId, p_key: "maxPeerNominations" }),
     ]);
@@ -59,6 +61,7 @@ export async function getNominationData(): Promise<NominationData | null> {
       department: (c.department as string | null) ?? null,
     })),
     managerNote,
+    approvedAt: (roster?.approved_at as string | null) ?? null,
     min: typeof minVal === "number" ? minVal : 3,
     max: maxVal ? Number.parseInt(maxVal as unknown as string, 10) || 5 : 5,
   };

@@ -79,7 +79,17 @@ export async function getCycleMonitor(): Promise<CycleMonitor | null> {
     .select("id", { count: "exact", head: true })
     .eq("cycle_id", cycle.id);
   const participants = count ?? 0;
-  const total = participants > 0 ? participants : activeTotal;
+
+  // Milestone denominator = the people who actually have a review (subjects) — NOT
+  // the whole roster, which also includes managers/approvers with no review of
+  // their own (e.g. a 6-person roster with 5 subjects → meters read "/5", not "/6").
+  const { count: subjectCount } = await supabase
+    .from("roster_members")
+    .select("id", { count: "exact", head: true })
+    .eq("cycle_id", cycle.id)
+    .is("withdrawn_at", null)
+    .contains("structural_roles", ["subject"]);
+  const total = (subjectCount ?? 0) > 0 ? (subjectCount as number) : activeTotal;
 
   // Days remaining until close (timestamp-derived; the rig masks it).
   let daysLeft: number | null = null;

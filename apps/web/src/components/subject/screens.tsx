@@ -1,6 +1,8 @@
+import Link from "next/link";
 import type { NarrativeSections } from "@transforma/review-core";
 import { BackToHome, RoleLabel, StatusBadge } from "@/components/atoms";
 import {
+  IcoArrowRight,
   IcoCheck,
   IcoCheckCircle,
   IcoClock,
@@ -11,6 +13,8 @@ import {
 } from "@/components/atoms/icons";
 import { resolveLabels } from "@/lib/labels/roleLabel";
 import type { MyResponse } from "@/lib/subject/data";
+import { getNominationData } from "@/lib/subject/nominations";
+import { getSelfReview } from "@/lib/subject/selfReview";
 import { formatLongDate, formatShortDate } from "@/lib/subject/format";
 import { AckPanel } from "./AckPanel";
 
@@ -60,31 +64,66 @@ export function ReviewDocument({
 }
 
 // Status-only timeline. Contains NO narrative/rating/flag — the subject sees
-// "In review" until the finished review is revealed. (Non-negotiable #3.)
-// `current` pulses; `upcoming` is a static dot (never pulses); `done` is a check.
-const STATUS_STEPS = [
-  { title: "Peer reviewers approved", meta: "Approved Jun 6", state: "done" as const },
-  {
-    title: "Self-review & peer feedback",
-    meta: "Both open now — running in parallel",
-    state: "current" as const,
-  },
-  { title: "Draft review", meta: "Prepared once feedback is in", state: "upcoming" as const },
-  {
-    title: "Manager review",
-    meta: "Your manager finalizes and sets the rating",
-    state: "upcoming" as const,
-    roleLabel: true,
-  },
-  {
-    title: "Ready to read & acknowledge",
-    meta: "Unlocks here when it's shared with you",
-    state: "upcoming" as const,
-  },
-];
+// "In review" until the finished review is revealed (Non-negotiable #3). Steps
+// and dates are derived from LIVE state (nomination status + self-review), never
+// demo data: step 1 is the only step the subject drives and the only one carrying
+// a real date (the roster's approved_at); later steps stay "upcoming" because the
+// subject must never see draft/manager progress.
+type StepState = "done" | "current" | "upcoming";
+interface TimelineStep {
+  title: string;
+  meta: string;
+  state: StepState;
+  roleLabel?: boolean;
+  cta?: { href: string; label: string };
+}
 
 export async function MyReviewStatus() {
-  const labels = await resolveLabels();
+  const [labels, nom, self] = await Promise.all([resolveLabels(), getNominationData(), getSelfReview()]);
+  const nomStatus = nom?.status ?? "not-started";
+  const approved = nomStatus === "approved";
+  const selfSubmitted = Boolean(self?.submitted);
+  const approvedDate = nom?.approvedAt ? formatShortDate(nom.approvedAt) : null;
+
+  // Step 1 — peer reviewers: the subject's own step, and the only one with a date.
+  let step1: TimelineStep;
+  if (approved) {
+    step1 = { title: "Peer reviewers approved", meta: approvedDate ? `Approved ${approvedDate}` : "Approved", state: "done" };
+  } else if (nomStatus === "pending") {
+    step1 = { title: "Peer nominations sent", meta: "With your manager for approval", state: "current" };
+  } else if (nomStatus === "changes_requested") {
+    step1 = { title: "Adjust your peer nominations", meta: "Your manager asked for a change", state: "current", cta: { href: "/review/nominate", label: "Review" } };
+  } else {
+    step1 = { title: "Nominate your peer reviewers", meta: "Pick who gives you feedback — at least 3", state: "current", cta: { href: "/review/nominate", label: "Nominate" } };
+  }
+
+  // Step 2 — self-review & peer feedback: opens only once reviewers are approved.
+  const step2: TimelineStep = !approved
+    ? { title: "Self-review & peer feedback", meta: "Opens once your reviewers are approved", state: "upcoming" }
+    : selfSubmitted
+      ? { title: "Self-review & peer feedback", meta: "Self-review submitted · peer feedback in progress", state: "current" }
+      : { title: "Self-review & peer feedback", meta: "Both open now — running in parallel", state: "current", cta: { href: "/review/self", label: "Write self-review" } };
+
+  const steps: TimelineStep[] = [
+    step1,
+    step2,
+    { title: "Draft review", meta: "Prepared once feedback is in", state: "upcoming" },
+    { title: "Manager review", meta: "Your manager finalizes and sets the rating", state: "upcoming", roleLabel: true },
+    { title: "Ready to read & acknowledge", meta: "Unlocks here when it's shared with you", state: "upcoming" },
+  ];
+
+  // Honest header: there IS something to do when the current step carries a CTA.
+  const action = step1.cta ?? step2.cta;
+  const headline = approved
+    ? selfSubmitted
+      ? "Your review is on its way."
+      : "Time for your self-review."
+    : nomStatus === "pending"
+      ? "Your nominations are with your manager."
+      : nomStatus === "changes_requested"
+        ? "Your manager asked for a change."
+        : "Let’s line up your peer reviewers.";
+
   return (
     <div className="tf-page subj-col">
       <div className="page-header">
@@ -94,17 +133,18 @@ export async function MyReviewStatus() {
             <StatusBadge status="in-review" sm />
           </div>
           <div className="ph-title">
-            <h1>Your review is on its way.</h1>
+            <h1>{headline}</h1>
           </div>
           <p className="ph-sub">
-            There&apos;s nothing for you to do right now. Here&apos;s where things stand — we&apos;ll let you know the
-            moment it&apos;s ready.
+            {action
+              ? "Here’s where things stand — one thing needs you, below."
+              : "There’s nothing for you to do right now. Here’s where things stand — we’ll let you know the moment it’s ready."}
           </p>
         </div>
       </div>
       <div className="card pad">
         <div className="rv-timeline">
-          {STATUS_STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <div className={`rv-step ${s.state}`} key={i}>
               <div className="rv-rail">
                 <span className="rv-node">
@@ -135,6 +175,11 @@ export async function MyReviewStatus() {
                   ) : null}
                 </h3>
                 <p className="rv-step-meta">{s.meta}</p>
+                {s.cta ? (
+                  <Link href={s.cta.href} className="btn btn-primary sm" style={{ marginTop: 10, display: "inline-flex" }}>
+                    {s.cta.label} <IcoArrowRight s={15} />
+                  </Link>
+                ) : null}
               </div>
             </div>
           ))}
