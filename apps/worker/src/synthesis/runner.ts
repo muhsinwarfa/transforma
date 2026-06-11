@@ -1,4 +1,4 @@
-import { applyFloor, buildSynthesisInput, type GateContext, runSynthesis } from "@transforma/review-core";
+import { applyFloor, buildSynthesisInput, type GateContext, redactObjectionLog, runSynthesis } from "@transforma/review-core";
 import { q } from "../db.js";
 import { buildSynthesisDeps } from "./anthropic.js";
 
@@ -88,12 +88,24 @@ export async function synthesizeReview(reviewId: string): Promise<"ready" | "fla
 
   const flagged = result.outcome === "flagged";
   // Objection log so the approver sees WHY it flagged — persist ONLY the final
-  // attempt's issues (result.issues), never every attempt. An earlier, regenerated-
-  // away draft's gate verbatim/identifier issue can quote a span no longer in the
-  // final draft (and, at/above floor, peer-derived) — we must not retain that at
-  // rest. The final attempt's gate issues only quote spans present in the draft the
-  // approver reads; the judge's issues never contain peer text. Null when not flagged.
-  const flagDetail = flagged ? JSON.stringify(result.issues) : null;
+  // attempt's issues (result.issues), never every attempt (an earlier, regenerated-
+  // away draft's verbatim/identifier span must not be retained at rest).
+  //
+  // STRUCTURAL privacy scrub (below floor only): the judge is given the self-review
+  // as the fabrication source, but flag_detail is approver-visible and the approver
+  // has subject-only RLS on self_reviews. So strip any self-review-only span from the
+  // persisted objections — keeping draft-quoting specifics the manager needs. This is
+  // a deterministic post-process, not a prompt instruction (privacy is structural).
+  // At/above floor the judge never receives the self-review, so no scrub is needed.
+  const persistIssues =
+    flagged && bundle.below_floor
+      ? redactObjectionLog(
+          result.issues,
+          Object.values((selfReview ?? {}) as Record<string, unknown>).map((v) => String(v ?? "")).join("\n"),
+          Object.values(result.draft ?? {}).map((v) => String(v ?? "")).join("\n"),
+        )
+      : result.issues;
+  const flagDetail = flagged ? JSON.stringify(persistIssues) : null;
   const { rows: draftRows } = await q<{ id: string }>(
     `insert into review_drafts (company_id, cycle_id, employee_id, review_id, bundle_id, sections, flagged, flag_reason, flag_detail, attempt_count, generated_by_model)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'claude-opus-4-8')

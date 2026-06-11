@@ -6,6 +6,7 @@ export * from "./reveal.js";
 export * from "./anonymity.js";
 export * from "./gate.js";
 export * from "./synthesis.js";
+export * from "./redact.js";
 export * from "./routes.js";
 export * from "./store.js";
 export * from "./engine.js";
