@@ -182,6 +182,14 @@ describe("PROC-02 approve_nominations", () => {
     ).rows;
     expect(seeded.map((r) => r.peer_account_id)).toEqual([PA1, PA2, PA3]);
     expect(seeded.every((r) => r.state === "new")).toBe(true); // one private request per peer
+
+    // 2026-06-11 — an approved peer is granted the 'peer' role on approval, so a
+    // subject-only nominee can reach the peer-feedback flow (and pass the /peer
+    // route guard). Granted by trg_grant_peer_role_on_approval on roster_peers.
+    const granted = (
+      await client.query(`select account_id from account_roles where role='peer' and account_id = any($1::uuid[])`, [[PA1, PA2, PA3]])
+    ).rows.map((r) => r.account_id).sort();
+    expect(granted).toEqual([PA1, PA2, PA3].sort());
   });
 
   it("a non-roster account CANNOT inject a peer_feedback row (red-team FLOOR-2 root; RLS insert is roster-bound)", async () => {
