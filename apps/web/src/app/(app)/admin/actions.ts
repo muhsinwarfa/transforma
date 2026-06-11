@@ -6,9 +6,12 @@ import { TransformaError } from "@transforma/review-core";
 import { getAdminReviewContent, type ReviewContent } from "@/lib/admin/content";
 import { requireRole } from "@/lib/auth/session";
 import { pgQuery } from "@/lib/db/pg";
+import { parsePgTextArray } from "@/lib/db/pg-array";
 import { createRlsClient } from "@/lib/supabase/server";
+import { STRUCTURAL_ROLES, parseAndValidateRoster, type ImportResult, type InvitedMember } from "@/lib/admin/roster-parse";
 
-const STRUCTURAL_ROLES = ["subject", "peer", "approver", "admin"] as const;
+// data types live with the pure parser; re-exported here for the import UI's imports
+export type { RowError, RosterRow, InvitedMember, ImportResult } from "@/lib/admin/roster-parse";
 
 async function activeCycleId(): Promise<string> {
   const supabase = await createRlsClient();
@@ -208,135 +211,8 @@ export async function saveCycleDefaults(d: {
 }
 
 // ── roster CSV import — validate EVERY row; import NOTHING until all valid ───
-export interface RowError {
-  row: number;
-  col: string;
-  msg: string;
-  value: string;
-}
-export interface RosterRow {
-  name: string;
-  email: string;
-  role: string;
-  manager: string;
-  department: string;
-}
-export interface InvitedMember {
-  email: string;
-  name: string;
-  /** the set-password link to surface for manual distribution; null if generation failed */
-  link: string | null;
-  /** whether the best-effort branded email was accepted by Supabase/SMTP */
-  emailed: boolean;
-  error?: string;
-}
-export interface ImportResult {
-  ok: boolean;
-  imported: number;
-  errors: RowError[];
-  // a small preview of the imported rows (for the success table); only set on ok
-  rows: RosterRow[];
-  // per newly-provisioned member: the surfaced activation link + email status (B5)
-  invites?: InvitedMember[];
-}
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-type StructuralRole = (typeof STRUCTURAL_ROLES)[number];
-type CanonCol = "name" | "email" | "role" | "manager" | "department";
-
-// Lenient CSV line split — honours double-quoted fields (so "Lee, Jordan" or a value
-// with a comma survives) and trims each cell. The strict preview then confirms.
-function parseCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (quoted) {
-      if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; } else quoted = false;
-      } else cur += c;
-    } else if (c === '"') quoted = true;
-    else if (c === ",") { out.push(cur); cur = ""; }
-    else cur += c;
-  }
-  out.push(cur);
-  return out.map((s) => s.trim());
-}
-
-// Header aliases → canonical column (case / underscore / hyphen / spacing tolerant).
-const HEADER_ALIASES: Record<string, CanonCol> = {
-  name: "name", "full name": "name", fullname: "name", "display name": "name", person: "name",
-  email: "email", "e mail": "email", "email address": "email", "work email": "email",
-  role: "role", title: "role", type: "role", access: "role",
-  manager: "manager", "manager email": "manager", "managers email": "manager", "manager s email": "manager", "reports to": "manager",
-  department: "department", dept: "department", team: "department", group: "department",
-};
-const canonHeader = (h: string): CanonCol | undefined =>
-  HEADER_ALIASES[h.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ")];
-
-// Role words → structural role: the structural names, common synonyms, AND the
-// tenant's own configured labels (whatever each role is called in this workspace).
-function roleResolver(roleLabels: Record<string, string>): (raw: string) => StructuralRole | null {
-  const map = new Map<string, StructuralRole>();
-  const add = (k: string, r: StructuralRole) => {
-    const key = k.trim().toLowerCase().replace(/\s+/g, " ");
-    if (key) map.set(key, r);
-  };
-  STRUCTURAL_ROLES.forEach((r) => add(r, r));
-  ["team member", "employee", "reviewee", "member", "staff", "individual contributor"].forEach((k) => add(k, "subject"));
-  ["people manager", "lead", "supervisor", "reviewer"].forEach((k) => add(k, "approver"));
-  ["administrator", "people ops", "people operations", "hr", "hr admin", "workspace admin"].forEach((k) => add(k, "admin"));
-  for (const r of STRUCTURAL_ROLES) add(roleLabels[r] ?? "", r);
-  return (raw) => map.get(raw.trim().toLowerCase().replace(/\s+/g, " ")) ?? null;
-}
-const acceptedRoleWords = (roleLabels: Record<string, string>): string =>
-  STRUCTURAL_ROLES.map((r) => roleLabels[r] || r).join(", ");
-
-// Pure parse + validation — performs NO writes. Lenient on input (quoted fields,
-// header aliases, role synonyms + tenant labels, case/whitespace); the strict preview
-// shows the NORMALIZED rows for confirm. Shared by validate + commit (identical rules).
-function parseAndValidateRoster(csvText: string, roleLabels: Record<string, string>): ImportResult {
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2)
-    return { ok: false, imported: 0, errors: [{ row: 0, col: "file", msg: "That file has no data rows — include a header row plus at least one person.", value: "" }], rows: [] };
-
-  const rawHeader = parseCsvLine(lines[0]!);
-  const colAt: Partial<Record<CanonCol, number>> = {};
-  rawHeader.forEach((h, i) => {
-    const c = canonHeader(h);
-    if (c && colAt[c] === undefined) colAt[c] = i;
-  });
-  const required: CanonCol[] = ["name", "email", "role"];
-  const missing = required.filter((c) => colAt[c] === undefined);
-  if (missing.length > 0) {
-    return { ok: false, imported: 0, errors: [{ row: 1, col: "header", msg: `Your file needs a column for: ${missing.join(", ")}. Common names work too — "Full name", "E-mail", "Manager email", "Dept".`, value: rawHeader.join(", ") }], rows: [] };
-  }
-
-  const resolveRole = roleResolver(roleLabels);
-  const accepted = acceptedRoleWords(roleLabels);
-  const errors: RowError[] = [];
-  const rows: RosterRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = parseCsvLine(lines[i]!);
-    const at = (c: CanonCol) => (colAt[c] !== undefined ? (cells[colAt[c]!] ?? "") : "");
-    const name = at("name");
-    const email = at("email").toLowerCase();
-    const roleRaw = at("role");
-    const role = resolveRole(roleRaw);
-    const manager = at("manager").toLowerCase();
-    const department = at("department");
-    if (!name) errors.push({ row: i + 1, col: "name", msg: "Name is required.", value: cells.join(", ") });
-    if (!EMAIL_RE.test(email)) errors.push({ row: i + 1, col: "email", msg: "That doesn't look like a valid email address.", value: email });
-    if (!role) errors.push({ row: i + 1, col: "role", msg: `Role should be one of: ${accepted}.`, value: roleRaw });
-    if (manager && !EMAIL_RE.test(manager))
-      errors.push({ row: i + 1, col: "manager", msg: "Manager should be the manager's email address (or left blank for top-level people).", value: manager });
-    rows.push({ name, email, role: role ?? roleRaw, manager, department });
-  }
-  // all-or-nothing: any bad row fails the whole file (contract: validate-before-import)
-  if (errors.length > 0) return { ok: false, imported: 0, errors, rows: [] };
-  return { ok: true, imported: 0, errors: [], rows };
-}
+// The pure parser + role inference + teaching error copy live in
+// `@/lib/admin/roster-parse` (unit-tested); the server actions below add the writes.
 
 /** The tenant's role labels — make role words + error copy tenant-aware in the parser. */
 async function companyRoleLabels(): Promise<Record<string, string>> {
@@ -492,7 +368,11 @@ export async function listRosterMembers(): Promise<RosterMemberRow[]> {
   } catch {
     return [];
   }
-  const { rows } = await pgQuery<{ id: string; display_name: string; email: string; structural_roles: string[]; status: string | null }>(
+  // structural_roles is app_role[] (a custom enum array). The raw pg driver can't parse
+  // that dynamic OID and returns the array LITERAL string ("{subject,approver}"), so
+  // normalize to a real string[] HERE — the UI must never .map() a string. (typed
+  // `unknown` because the runtime shape is driver-dependent: array | string | null.)
+  const { rows } = await pgQuery<{ id: string; display_name: string; email: string; structural_roles: unknown; status: string | null }>(
     `select rm.id, rm.display_name, rm.email, rm.structural_roles, a.status
        from roster_members rm
        left join accounts a on a.id = rm.account_id
@@ -504,7 +384,7 @@ export async function listRosterMembers(): Promise<RosterMemberRow[]> {
     id: r.id,
     name: r.display_name,
     email: r.email,
-    roles: r.structural_roles ?? [],
+    roles: parsePgTextArray(r.structural_roles),
     status: r.status === "active" ? "active" : r.status === "invited" ? "invited" : "unprovisioned",
   }));
 }

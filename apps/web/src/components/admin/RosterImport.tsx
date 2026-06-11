@@ -40,13 +40,17 @@ export function RosterImport({
   const [csv, setCsv] = useState("");
   const [pending, start] = useTransition();
 
-  // CSV template — sample rows in the tenant's own role words (the importer also
-  // accepts the structural names + common aliases). `manager_email` links a person to
-  // their manager; leave it blank for top-level people.
+  // CSV template — clearly-fake sample rows that DEMONSTRATE the model: role is left
+  // blank for the inferred subjects, `manager_email` is an email and links each person
+  // to their manager, and the manager appears as a row (and as others' manager_email)
+  // so they're recognised as an approver. Admins aren't listed here.
+  const mgrLabel = roleLabels.approver || "Manager";
   const template =
     "name,email,role,manager_email,department\n" +
-    `Jordan Lee,jordan.lee@example.com,${roleLabels.subject || "subject"},sam.rivera@example.com,Clinical Operations\n` +
-    `Sam Rivera,sam.rivera@example.com,${roleLabels.approver || "approver"},,Clinical Operations\n`;
+    `Jordan Lee,jordan.lee@example.com,,maya.chen@example.com,Clinical Operations\n` +
+    `Sam Rivera,sam.rivera@example.com,,maya.chen@example.com,Clinical Operations\n` +
+    `Maya Chen,maya.chen@example.com,${mgrLabel},,Clinical Operations\n`;
+  const anA = (w: string) => (/^[aeiou]/i.test(w.trim()) ? `an ${w}` : `a ${w}`);
 
   // Phase 1 — read-only validation. Writes nothing; renders the preview or errors.
   const validate = (csvText: string) => {
@@ -142,7 +146,11 @@ export function RosterImport({
               <IcoUpload s={26} />
             </span>
             <h3>Drop your roster CSV here</h3>
-            <p>Or click to browse. Columns: name, email, role, manager_email, department.</p>
+            <p>
+              Or click to browse. Columns: name, email, manager_email, department — plus an optional role. We work out
+              who&apos;s {anA(mgrLabel)} from manager_email; everyone else is {anA(roleLabels.subject || "team member")}.
+              ({roleLabels.admin || "Admin"} accounts are set up separately.)
+            </p>
             <span className="dz-formats">roster.csv · max 5 MB</span>
           </button>
           <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
@@ -201,7 +209,7 @@ export function RosterImport({
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
-                    <th>Manager</th>
+                    <th>Manager email</th>
                     <th>Department</th>
                   </tr>
                 </thead>
