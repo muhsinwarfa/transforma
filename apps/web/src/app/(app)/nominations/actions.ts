@@ -36,6 +36,11 @@ export async function approveNominations(cycleId: string, employeeId: string) {
   if (error) throw new TransformaError("ERR_FORBIDDEN", error.message, 403);
   revalidatePath("/nominations");
   revalidatePath(`/nominations/${employeeId}`);
+  // Approval moves the subject's nominate/timeline/hub state to "approved";
+  // revalidate their surfaces so a fresh navigation reflects it.
+  revalidatePath("/review/nominate");
+  revalidatePath("/review");
+  revalidatePath("/home");
 }
 
 /**
@@ -66,4 +71,10 @@ export async function requestNominationChanges(cycleId: string, employeeId: stri
 
   revalidatePath("/nominations");
   revalidatePath(`/nominations/${employeeId}`);
+  // The send-back moves the subject's state to changes-requested; revalidate their
+  // surfaces so a fresh navigation leaves any cached "sent for approval" view and
+  // lands on the editable form (with the manager's note).
+  revalidatePath("/review/nominate");
+  revalidatePath("/review");
+  revalidatePath("/home");
 }

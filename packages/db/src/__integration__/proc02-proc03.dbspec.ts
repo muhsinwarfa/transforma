@@ -42,6 +42,14 @@ const GP1 = "a1000000-0000-0000-0000-0000000000a9";
 const GP2 = "a1000000-0000-0000-0000-0000000000b9";
 const U_SG = "e1000000-0000-0000-0000-0000000000a7";
 const REV_G = "c1000000-0000-0000-0000-0000000000a7";
+// request-changes ↔ resubmit loop: subject SC + approver APC (each with an auth
+// user so the RLS write/read paths run end to end), pending nominations, no roster.
+const SC = "a1000000-0000-0000-0000-0000000000c1";
+const APC = "a1000000-0000-0000-0000-0000000000c2";
+const U_SC = "e1000000-0000-0000-0000-0000000000c1";
+const U_APC = "e1000000-0000-0000-0000-0000000000c2";
+const RC = "c1000000-0000-0000-0000-0000000000c1";
+const CHANGE_NOTE = "please add someone from outside Clinical Ops";
 
 let epg: EmbeddedPostgres;
 let client: pg.Client;
@@ -114,6 +122,28 @@ insert into roster_members (company_id, cycle_id, account_id, email, display_nam
   on conflict do nothing;
 insert into reviews (id,company_id,cycle_id,employee_id,approver_id,status) values
   ('${REV_G}','${C}','${CY}','${SG}', null, 'draft')
+  on conflict do nothing;
+
+-- request-changes ↔ resubmit loop fixtures: subject SC, approver APC (RC.approver_id
+-- = APC so is_approver_of(SC,CY) holds), pending nominations, and NO roster (so the
+-- subject's edit-lock has not engaged and they can still resubmit).
+insert into auth.users (id,email) values
+  ('${U_SC}','sc@riverbend.test'), ('${U_APC}','apc@riverbend.test') on conflict do nothing;
+insert into accounts (id, company_id, email, display_name, status, auth_user_id) values
+  ('${SC}','${C}','sc@riverbend.test','Subject C','active','${U_SC}'),
+  ('${APC}','${C}','apc@riverbend.test','Manager C','active','${U_APC}')
+  on conflict do nothing;
+insert into account_roles (account_id, role, company_id) values
+  ('${SC}','subject','${C}'), ('${APC}','approver','${C}') on conflict do nothing;
+insert into roster_members (company_id, cycle_id, account_id, email, display_name, manager_account_id) values
+  ('${C}','${CY}','${SC}','sc@riverbend.test','Subject C','${APC}')
+  on conflict do nothing;
+insert into reviews (id,company_id,cycle_id,employee_id,approver_id,status) values
+  ('${RC}','${C}','${CY}','${SC}','${APC}','draft')
+  on conflict do nothing;
+insert into nominations (company_id,cycle_id,employee_id,nominee_account_id,status) values
+  ('${C}','${CY}','${SC}','${PA1}','pending'),
+  ('${C}','${CY}','${SC}','${PA2}','pending')
   on conflict do nothing;
 `;
 
@@ -404,5 +434,61 @@ describe("nomination_candidates returns a non-empty pool when approver_id is NUL
     expect(rows).not.toContain(MG); // never the subject's manager (decision #3)
     expect(rows).toContain(GP1); // the manager IS a roster member, so its exclusion is real
     expect(rows).toContain(GP2);
+  });
+});
+
+// ── PROC-02 send-back loop: request-changes → subject edits → resubmit → back in queue ──
+// Regression for the live-pilot "request-changes dead-ends" report. The send-back must
+// reach the SUBJECT: their nominations flip to changes_requested WITH the manager's note
+// (the editable-form state getNominationData renders), the subject can still resubmit
+// (no roster → edit-lock open), and the fresh set returns to the manager's queue as
+// pending. Exercised under the real RLS policies, switching the acting account mid-
+// transaction; the whole thing is rolled back so the shared fixture is untouched.
+describe("PROC-02 request-changes → resubmit loop (the subject's edit-and-return path)", () => {
+  it("manager send-back reaches the subject (changes_requested + note), who resubmits back into the queue", async () => {
+    await client.query("begin");
+    try {
+      await client.query("set local role authenticated");
+      const act = (sub: string) =>
+        client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub })]);
+
+      // 1) manager sends the set back with a note (requestNominationChanges write path)
+      await act(U_APC);
+      const upd = await client.query(
+        "update nominations set status='changes_requested', manager_note=$1 where cycle_id=$2 and employee_id=$3",
+        [CHANGE_NOTE, CY, SC],
+      );
+      expect(upd.rowCount).toBe(2); // the approver-RLS update actually flips the whole set
+
+      // 2) the SUBJECT sees the changes-requested EDIT state: every row changes_requested,
+      //    the note round-trips, and there is no roster (so the form stays editable)
+      await act(U_SC);
+      const seen = (await client.query("select status, manager_note from nominations where cycle_id=$1", [CY])).rows;
+      expect(seen.length).toBe(2);
+      expect(seen.every((r) => r.status === "changes_requested")).toBe(true);
+      expect(seen.every((r) => r.manager_note === CHANGE_NOTE)).toBe(true); // note displays on the edit form
+      const roster = await client.query("select id from rosters where cycle_id=$1", [CY]);
+      expect(roster.rowCount).toBe(0); // edit-lock has NOT engaged → resubmit is allowed
+
+      // 3) the subject resubmits a fresh set (submitNominations: delete then insert pending)
+      await client.query("delete from nominations where cycle_id=$1 and employee_id=$2", [CY, SC]);
+      await client.query(
+        `insert into nominations (company_id,cycle_id,employee_id,nominee_account_id,status)
+         values ($1,$2,$3,$4,'pending'),($1,$2,$3,$5,'pending')`,
+        [C, CY, SC, PA1, PA3],
+      );
+
+      // 4) the manager's queue gets it back: nomination_sets is pending again, note gone
+      await act(U_APC);
+      const setRow = (
+        await client.query("select set_status, nominee_count from nomination_sets where employee_id=$1", [SC])
+      ).rows[0];
+      expect(setRow.set_status).toBe("pending"); // returned to the queue, awaiting approval
+      expect(setRow.nominee_count).toBe(2);
+      const notes = (await client.query("select distinct manager_note from nominations where employee_id=$1", [SC])).rows;
+      expect(notes).toEqual([{ manager_note: null }]); // the prior note doesn't cling to the new set
+    } finally {
+      await client.query("rollback");
+    }
   });
 });

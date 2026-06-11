@@ -2,6 +2,12 @@ import { NominateForm, NominateStatusCard } from "@/components/subject/Nominate"
 import { resolveLabels } from "@/lib/labels/roleLabel";
 import { getNominationData } from "@/lib/subject/nominations";
 
+// Always render fresh from live nomination state. The subject reaches this page
+// across a manager action that happens in a DIFFERENT session (request-changes /
+// approve), so a cached render would strand them on a stale "sent for approval"
+// screen after the state has moved to changes-requested.
+export const dynamic = "force-dynamic";
+
 export default async function NominatePage({
   searchParams,
 }: {

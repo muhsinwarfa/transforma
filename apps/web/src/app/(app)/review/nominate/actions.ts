@@ -50,4 +50,6 @@ export async function submitNominations(selectedIds: string[]) {
   }
 
   revalidatePath("/review/nominate");
+  revalidatePath("/review"); // the status timeline
+  revalidatePath("/home"); // the hub task card
 }

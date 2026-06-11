@@ -5,6 +5,10 @@ import { getActiveCycle } from "@/lib/admin/data";
 import { getMyResponse, getMyReviewStatus, getRevealedReview } from "@/lib/subject/data";
 import { decideSubjectView } from "@/lib/subject/view";
 
+// Always fresh: the status timeline mirrors live nomination/review state that a
+// manager moves from another session, so it must never serve a cached render.
+export const dynamic = "force-dynamic";
+
 /**
  * The Subject "My review" screen — the reveal boundary in the rendered UI.
  *
