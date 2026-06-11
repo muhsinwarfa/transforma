@@ -24,12 +24,25 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   }
 
   const has = (r: StructuralRole) => session.roles.includes(r);
+  // Nav badges count only items that NEED ACTION — each badge mirrors the actionable
+  // predicate of the queue it links to, so it decrements as work is cleared. Counting
+  // every row (the old `.length`) left the badge stuck after approvals (the Nominations
+  // bug). Peer → PeerList "To do"; Approvals → ApproverQueue "pending" (in-review /
+  // flagged, never the decided rows); Nominations → pending sets only.
   const [labels, cycle, peer, approvals, nominations] = await Promise.all([
     resolveLabels(),
     getActiveCycle(),
-    has("peer") ? getPeerAssignments().then((a) => a.length) : Promise.resolve(undefined),
-    has("approver") ? getApproverQueue().then((a) => a.length) : Promise.resolve(undefined),
-    has("approver") ? getNominationQueue().then((a) => a.length) : Promise.resolve(undefined),
+    has("peer")
+      ? getPeerAssignments().then(
+          (a) => a.filter((r) => r.state !== "submitted" && r.state !== "closed" && r.state !== "declined").length,
+        )
+      : Promise.resolve(undefined),
+    has("approver")
+      ? getApproverQueue().then((a) => a.filter((q) => q.status === "in-review" || q.status === "flagged").length)
+      : Promise.resolve(undefined),
+    has("approver")
+      ? getNominationQueue().then((a) => a.filter((n) => n.status === "pending").length)
+      : Promise.resolve(undefined),
   ]);
 
   // Workspace (tenant) name for the account menu — the product brand stays "Transforma".

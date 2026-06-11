@@ -190,7 +190,7 @@ async function adminTasks(): Promise<HubTask[]> {
       title: "Cycle in progress",
       status: "in-review",
       due: dueText,
-      meta: `${monitor.activeTotal} participants · ${monitor.counts.locked} locked`,
+      meta: `${monitor.participants} ${monitor.participants === 1 ? "participant" : "participants"} · ${monitor.counts.locked} locked`,
       cta: "View cycle",
       href: "/admin/cycle",
     });

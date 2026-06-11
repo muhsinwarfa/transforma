@@ -21,12 +21,12 @@ export function CycleMonitor({ monitor }: { monitor: Monitor }) {
         <div className="mh-body">
           <h2 className="mh-title">{cycle.name}</h2>
           <div className="mh-meta">
-            {window} · {participants} participants
+            {window} · {participants} {participants === 1 ? "participant" : "participants"}
           </div>
         </div>
         {daysLeft != null ? (
           <span className="deadline calm">
-            <IcoClock s={14} sw={1.9} /> {daysLeft} days left
+            <IcoClock s={14} sw={1.9} /> {daysLeft} {daysLeft === 1 ? "day" : "days"} left
           </span>
         ) : null}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StructuralRole } from "@transforma/db";
 import type { RoleLabels } from "@/lib/labels/roleLabel";
 import { StatusBadge } from "@/components/atoms";
@@ -63,6 +63,14 @@ export function HomeHub({
   groups: HubGroup[];
 }) {
   const [filter, setFilter] = useState<"all" | StructuralRole>("all");
+  // Greeting: SSR a stable, JS-free "Welcome back" (the design's headline voice),
+  // then refine to the viewer's LOCAL time-of-day after mount so it never reads
+  // "Good morning" in the evening. A constant initial value ⇒ no hydration mismatch.
+  const [greeting, setGreeting] = useState("Welcome back");
+  useEffect(() => {
+    const h = new Date().getHours();
+    setGreeting(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
+  }, []);
   const total = groups.reduce((n, g) => n + g.tasks.length, 0);
   const visible = filter === "all" ? groups : groups.filter((g) => g.role === filter);
 
@@ -79,10 +87,16 @@ export function HomeHub({
             ) : null}
           </div>
           <div className="ph-title">
-            <h1>Good morning, {firstName}.</h1>
+            <h1>
+              {greeting}, {firstName}.
+            </h1>
           </div>
           <p className="ph-sub">
-            You have <strong>{total} things</strong> that need you across the roles you hold this cycle.
+            You have{" "}
+            <strong>
+              {total} {total === 1 ? "thing" : "things"}
+            </strong>{" "}
+            that {total === 1 ? "needs" : "need"} you across the roles you hold this cycle.
           </p>
         </div>
       </div>
