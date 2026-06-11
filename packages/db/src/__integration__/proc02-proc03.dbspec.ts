@@ -50,6 +50,18 @@ const U_SC = "e1000000-0000-0000-0000-0000000000c1";
 const U_APC = "e1000000-0000-0000-0000-0000000000c2";
 const RC = "c1000000-0000-0000-0000-0000000000c1";
 const CHANGE_NOTE = "please add someone from outside Clinical Ops";
+// completion-trigger (PROC-04) + meter (cycle_progress) fixtures: subject ST with an
+// APPROVED roster (RST) of 3 peers, a submitted self-review, 3 'new' peer requests,
+// and an admin ADM. Trigger/meter tests mutate these inside rolled-back transactions.
+const ST = "a1000000-0000-0000-0000-0000000000d1";
+const APT = "a1000000-0000-0000-0000-0000000000d2";
+const TP1 = "a1000000-0000-0000-0000-0000000000d3";
+const TP2 = "a1000000-0000-0000-0000-0000000000d4";
+const TP3 = "a1000000-0000-0000-0000-0000000000d5";
+const RT = "c1000000-0000-0000-0000-0000000000d1";
+const RST = "d1000000-0000-0000-0000-0000000000d1";
+const ADM = "a1000000-0000-0000-0000-0000000000da";
+const U_ADM = "e1000000-0000-0000-0000-0000000000da";
 
 let epg: EmbeddedPostgres;
 let client: pg.Client;
@@ -144,6 +156,37 @@ insert into reviews (id,company_id,cycle_id,employee_id,approver_id,status) valu
 insert into nominations (company_id,cycle_id,employee_id,nominee_account_id,status) values
   ('${C}','${CY}','${SC}','${PA1}','pending'),
   ('${C}','${CY}','${SC}','${PA2}','pending')
+  on conflict do nothing;
+
+-- completion-trigger + meter fixtures: subject ST with an APPROVED roster (RST) of 3
+-- peers, a submitted self-review, 3 'new' peer requests; admin ADM for cycle_progress.
+insert into auth.users (id,email) values ('${U_ADM}','adm@riverbend.test') on conflict do nothing;
+insert into accounts (id, company_id, email, display_name, status, auth_user_id) values
+  ('${ST}','${C}','st@riverbend.test','Subject T','active', null),
+  ('${APT}','${C}','apt@riverbend.test','Manager T','active', null),
+  ('${TP1}','${C}','tp1@riverbend.test','Peer T1','active', null),
+  ('${TP2}','${C}','tp2@riverbend.test','Peer T2','active', null),
+  ('${TP3}','${C}','tp3@riverbend.test','Peer T3','active', null),
+  ('${ADM}','${C}','adm@riverbend.test','Admin A','active','${U_ADM}')
+  on conflict do nothing;
+insert into account_roles (account_id, role, company_id) values
+  ('${ST}','subject','${C}'), ('${ADM}','admin','${C}') on conflict do nothing;
+insert into rosters (id, company_id, cycle_id, employee_id, approved_by, approved_at) values
+  ('${RST}','${C}','${CY}','${ST}','${APT}', now())
+  on conflict do nothing;
+insert into roster_peers (company_id, roster_id, peer_account_id) values
+  ('${C}','${RST}','${TP1}'), ('${C}','${RST}','${TP2}'), ('${C}','${RST}','${TP3}')
+  on conflict do nothing;
+insert into reviews (id,company_id,cycle_id,employee_id,approver_id,roster_id,status,feedback_deadline_at) values
+  ('${RT}','${C}','${CY}','${ST}','${APT}','${RST}','draft', now() + interval '10 days')
+  on conflict do nothing;
+insert into self_reviews (company_id,cycle_id,employee_id,review_id,sections,state,submitted_at) values
+  ('${C}','${CY}','${ST}','${RT}','{"q1":"t"}'::jsonb,'submitted', now())
+  on conflict do nothing;
+insert into peer_feedback (company_id,cycle_id,employee_id,review_id,roster_id,peer_account_id,state,deadline_at) values
+  ('${C}','${CY}','${ST}','${RT}','${RST}','${TP1}','new', now() + interval '10 days'),
+  ('${C}','${CY}','${ST}','${RT}','${RST}','${TP2}','new', now() + interval '10 days'),
+  ('${C}','${CY}','${ST}','${RT}','${RST}','${TP3}','new', now() + interval '10 days')
   on conflict do nothing;
 `;
 
@@ -487,6 +530,151 @@ describe("PROC-02 request-changes → resubmit loop (the subject's edit-and-retu
       expect(setRow.nominee_count).toBe(2);
       const notes = (await client.query("select distinct manager_note from nominations where employee_id=$1", [SC])).rows;
       expect(notes).toEqual([{ manager_note: null }]); // the prior note doesn't cling to the new set
+    } finally {
+      await client.query("rollback");
+    }
+  });
+});
+
+// ── PROC-04 completion trigger — fire when inputs are complete, not only at deadline ──
+// RULING: synthesis fires as soon as the self-review is submitted AND every APPROVED
+// peer has RESOLVED (submitted OR declined; a closed request never blocks). The
+// deadline cron stays the FALLBACK sweep. Below floor still fires (self-only). Each
+// scenario mutates ST's fixtures inside a rolled-back transaction (isolation).
+describe("PROC-04 completion trigger (maybe_close_on_completion)", () => {
+  const inTx = async (fn: () => Promise<void>) => {
+    await client.query("begin");
+    try {
+      await fn();
+    } finally {
+      await client.query("rollback");
+    }
+  };
+  const trigger = async () => (await client.query("select app.maybe_close_on_completion($1) as o", [RT])).rows[0].o;
+  const bundles = async () => (await client.query("select count(*)::int as n from feedback_bundles where review_id=$1", [RT])).rows[0].n;
+  const jobs = async () => (await client.query("select state from synthesis_jobs where review_id=$1", [RT])).rows;
+  const status = async () => (await client.query("select status from reviews where id=$1", [RT])).rows[0].status;
+
+  it("PENDING peer request → does NOT fire (waiting_peers); no bundle, no job", async () => {
+    await inTx(async () => {
+      // fixtures: 3 peers all 'new' (unresolved), self submitted
+      expect(await trigger()).toBe("waiting_peers");
+      expect(await bundles()).toBe(0);
+      expect((await jobs()).length).toBe(0);
+    });
+  });
+
+  it("a peer still in 'draft' (autosaving, in progress) blocks completion (waiting_peers)", async () => {
+    await inTx(async () => {
+      await client.query("update peer_feedback set state='submitted', submitted_at=now() where review_id=$1 and peer_account_id = any($2::uuid[])", [RT, [TP1, TP2]]);
+      await client.query("update peer_feedback set state='draft' where review_id=$1 and peer_account_id=$2", [RT, TP3]);
+      expect(await trigger()).toBe("waiting_peers"); // 'draft' is unresolved, not terminal
+      expect(await bundles()).toBe(0);
+    });
+  });
+
+  it("self-review NOT submitted → does NOT fire (waiting_self), even with every peer resolved", async () => {
+    await inTx(async () => {
+      await client.query("update self_reviews set state='draft', submitted_at=null where review_id=$1", [RT]);
+      await client.query("update peer_feedback set state='submitted', submitted_at=now() where review_id=$1", [RT]);
+      expect(await trigger()).toBe("waiting_self");
+      expect(await bundles()).toBe(0);
+    });
+  });
+
+  it("ALL approved peers resolved WITH A DECLINE → FIRES synthesis (declines count as resolved)", async () => {
+    await inTx(async () => {
+      await client.query("update peer_feedback set state='submitted', submitted_at=now() where review_id=$1 and peer_account_id = any($2::uuid[])", [RT, [TP1, TP2]]);
+      await client.query("update peer_feedback set state='declined', declined_at=now() where review_id=$1 and peer_account_id=$2", [RT, TP3]);
+      // 2 submitted < floor(3) → self-only path, but it FIRES (all 3 resolved)
+      expect(await trigger()).toBe("below_floor");
+      expect(await bundles()).toBe(1);
+      const j = await jobs();
+      expect(j.length).toBe(1);
+      expect(j[0].state).toBe("queued");
+      expect(await status()).toBe("in-review"); // draft → in-review on close
+    });
+  });
+
+  it("all peers SUBMITTED (>= floor) → FIRES synthesis (compiled, at/above floor)", async () => {
+    await inTx(async () => {
+      await client.query("update peer_feedback set state='submitted', submitted_at=now() where review_id=$1", [RT]);
+      expect(await trigger()).toBe("compiled"); // 3 submitted >= threshold 3
+      expect(await bundles()).toBe(1);
+      expect((await jobs())[0].state).toBe("queued");
+    });
+  });
+
+  it("a CLOSED request never blocks completion (counts as resolved)", async () => {
+    await inTx(async () => {
+      await client.query("update peer_feedback set state='submitted', submitted_at=now() where review_id=$1 and peer_account_id=$2", [RT, TP1]);
+      await client.query("update peer_feedback set state='declined', declined_at=now() where review_id=$1 and peer_account_id=$2", [RT, TP2]);
+      await client.query("update peer_feedback set state='closed' where review_id=$1 and peer_account_id=$2", [RT, TP3]);
+      expect(await trigger()).toBe("below_floor"); // 1 submitted, all resolved → fires
+      expect(await bundles()).toBe(1);
+    });
+  });
+
+  it("deadline sweep covers the rest: an UNRESOLVED peer past deadline still closes via close_feedback", async () => {
+    await inTx(async () => {
+      // one peer submitted, two still 'new' → completion does NOT fire
+      await client.query("update peer_feedback set state='submitted', submitted_at=now() where review_id=$1 and peer_account_id=$2", [RT, TP1]);
+      expect(await trigger()).toBe("waiting_peers");
+      // the deadline cron calls close_feedback directly, compiling with whatever exists
+      const swept = (await client.query("select app.close_feedback($1) as o", [RT])).rows[0].o;
+      expect(swept).toBe("below_floor"); // 1 submitted < floor → self-only
+      expect(await bundles()).toBe(1);
+      // the still-'new' requests are CLOSED by the sweep (can't change the floor later)
+      const states = (
+        await client.query("select state from peer_feedback where review_id=$1 and peer_account_id = any($2::uuid[])", [RT, [TP2, TP3]])
+      ).rows.map((r) => r.state);
+      expect(states.every((s) => s === "closed")).toBe(true);
+    });
+  });
+});
+
+// ── admin monitor meters pinned to REAL submission counts (cycle_progress view) ──
+// Regression for the "Self-reviews 0/5, Peer feedback 0/5 despite real input" bug:
+// the meters were derived from review STATUS (past 'draft'), so submitted inputs on a
+// still-draft review read 0. cycle_progress counts submission STATE instead. Delta
+// asserts prove a DRAFT review's submitted self-review + submitted peer response are
+// counted — independent of review.status. Rolled back for isolation.
+describe("admin monitor meters pinned to real submission counts (cycle_progress)", () => {
+  it("counts submitted self-reviews + submitted peer responses even when the review is still DRAFT", async () => {
+    await client.query("begin");
+    try {
+      const asAdmin = async () => {
+        await client.query("set local role authenticated");
+        await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: U_ADM })]);
+      };
+      const prog = async () => {
+        await asAdmin();
+        return (
+          await client.query("select self_submitted, peer_responded from cycle_progress where cycle_id=$1", [CY])
+        ).rows[0];
+      };
+
+      // ST's review is DRAFT; its self-review is 'submitted'; its peers are 'new'.
+      const stStatusBefore = (await client.query("select status from reviews where id=$1", [RT])).rows[0].status;
+      expect(stStatusBefore).toBe("draft");
+
+      const base = await prog();
+
+      // (self) un-submitting ST's self-review drops self_submitted by exactly 1 — the
+      // meter reflects self_reviews.state, NOT review.status (ST stays 'draft').
+      await client.query("reset role");
+      await client.query("update self_reviews set state='draft' where review_id=$1", [RT]);
+      expect((await prog()).self_submitted).toBe(base.self_submitted - 1);
+
+      // (peer) submitting one of ST's peer requests raises peer_responded by exactly 1 —
+      // a submitted peer response counts though ST's review is still 'draft'.
+      await client.query("reset role");
+      await client.query("update peer_feedback set state='submitted', submitted_at=now() where review_id=$1 and peer_account_id=$2", [RT, TP1]);
+      expect((await prog()).peer_responded).toBe(base.peer_responded + 1);
+
+      // ST's review never left 'draft' — proving the meters are submission-based.
+      await client.query("reset role");
+      expect((await client.query("select status from reviews where id=$1", [RT])).rows[0].status).toBe("draft");
     } finally {
       await client.query("rollback");
     }

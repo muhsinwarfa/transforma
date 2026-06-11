@@ -98,15 +98,24 @@ export async function getCycleMonitor(): Promise<CycleMonitor | null> {
     daysLeft = Math.max(0, Math.ceil(ms / 86_400_000));
   }
 
-  // Aggregate, no-content progress meters. Self-reviews are "in" once a review
-  // leaves draft; decisions are "done" once finalized (awaiting-ack or locked).
-  // Peer feedback is shown as a lifecycle proxy (reviews that reached review or
-  // beyond) because admins cannot read peer_feedback rows by design.
-  const pastDraft = counts["in-review"] + counts["awaiting-acknowledgement"] + counts.locked + counts.flagged;
+  // Aggregate, no-content progress meters pinned to REAL submission state. A review
+  // stays 'draft' until synthesis fires, so deriving "Self-reviews"/"Peer feedback"
+  // from review status under-counts mid-cycle (a submitted self-review + submitted
+  // peer responses read 0 until the window closes). `cycle_progress` is an admin-
+  // gated, owner-run, integers-only aggregate of self_reviews/peer_feedback state —
+  // no content, never a per-subject peer count (the floor is untouched). "Manager
+  // decisions" stays status-derived (awaiting-ack/locked is the finalize signal).
+  const { data: prog } = await supabase
+    .from("cycle_progress")
+    .select("self_submitted, peer_responded")
+    .eq("cycle_id", cycle.id)
+    .maybeSingle();
+  const selfSubmitted = (prog?.self_submitted as number | undefined) ?? 0;
+  const peerResponded = (prog?.peer_responded as number | undefined) ?? 0;
   const decided = counts["awaiting-acknowledgement"] + counts.locked;
   const milestones: Milestone[] = [
-    { label: "Self-reviews", done: pastDraft, total },
-    { label: "Peer feedback", done: pastDraft, total },
+    { label: "Self-reviews", done: selfSubmitted, total },
+    { label: "Peer feedback", done: peerResponded, total },
     { label: "Manager decisions", done: decided, total },
   ];
 
