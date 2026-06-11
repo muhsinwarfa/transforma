@@ -127,6 +127,12 @@ export function buildSynthesisDeps(input: SynthesisInput): SynthesisDeps {
         draft,
         peer_source_count: input.peerThemes ? input.peerThemes.length : 0,
         below_floor: input.belowFloor,
+        // Source for the below-floor fabrication check: when self-only, the self-review
+        // is the COMPLETE source, so a claim with no basis in it is fabrication. OMITTED
+        // at/above floor — there the draft also draws on peer themes the judge never sees
+        // (peer confidentiality), so checking fabrication against the self-review alone
+        // would false-positive on peer-grounded claims.
+        self_review: input.belowFloor ? input.selfReview : undefined,
       });
       const params = {
         model: JUDGE_MODEL,
