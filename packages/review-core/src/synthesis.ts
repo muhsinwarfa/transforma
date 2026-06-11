@@ -37,6 +37,14 @@ export interface SynthesisResult {
   /** how many times the deterministic gate ran — must equal `attempts` for ready/flagged */
   gateCalls: number;
   issues: SynthesisIssue[];
+  /**
+   * The objections from EACH attempt (index 0 = attempt 1) — the combined gate +
+   * judge issues that drove a regenerate. Persisted on a flag so the manager can
+   * see WHY a review was flagged (a flag with no reason trains people to ignore
+   * flags). Contains no peer content — the judge sees only the de-identified draft
+   * and a peer COUNT, so its objections reference the draft, never peer text.
+   */
+  attemptIssues: SynthesisIssue[][];
 }
 
 export const MAX_SYNTHESIS_ATTEMPTS = 3;
@@ -57,6 +65,7 @@ export async function runSynthesis(deps: SynthesisDeps, gateCtx: GateContext): P
   let lastDraft: NarrativeSections | null = null;
   let lastIssues: SynthesisIssue[] = [];
   let gateCalls = 0;
+  const attemptIssues: SynthesisIssue[][] = []; // objection log, one entry per attempt
 
   for (let attempt = 1; attempt <= MAX_SYNTHESIS_ATTEMPTS; attempt++) {
     let draft: NarrativeSections;
@@ -64,7 +73,7 @@ export async function runSynthesis(deps: SynthesisDeps, gateCtx: GateContext): P
       draft = await deps.generate(priorIssues);
     } catch (e) {
       if (e instanceof DeterministicSynthesisError) {
-        return { outcome: "aborted", draft: null, attempts: attempt, gateCalls, issues: [] };
+        return { outcome: "aborted", draft: null, attempts: attempt, gateCalls, issues: [], attemptIssues };
       }
       throw e; // transient → caller leaves the job queued for redelivery
     }
@@ -79,6 +88,7 @@ export async function runSynthesis(deps: SynthesisDeps, gateCtx: GateContext): P
       ...verdict.issues,
     ];
     lastIssues = issues;
+    attemptIssues.push(issues);
 
     if (det.pass && verdict.pass) {
       // "ready" means BOTH gates passed — it is NOT a guarantee of anonymity.
@@ -88,7 +98,7 @@ export async function runSynthesis(deps: SynthesisDeps, gateCtx: GateContext): P
       // approver (semantic backstop, who can see "this names someone" and reject).
       // The judge only reduces how often the human must catch something. Nothing
       // downstream may treat a judge-pass as proof of anonymity.
-      return { outcome: "ready", draft, attempts: attempt, gateCalls, issues: [] };
+      return { outcome: "ready", draft, attempts: attempt, gateCalls, issues: [], attemptIssues };
     }
     priorIssues = issues.map((i) => `${i.category}: ${i.detail}`);
   }
@@ -99,6 +109,7 @@ export async function runSynthesis(deps: SynthesisDeps, gateCtx: GateContext): P
     attempts: MAX_SYNTHESIS_ATTEMPTS,
     gateCalls,
     issues: lastIssues,
+    attemptIssues,
   };
 }
 

@@ -1,5 +1,5 @@
 import "server-only";
-import type { NarrativeSections } from "@transforma/review-core";
+import type { NarrativeSections, SynthesisIssue } from "@transforma/review-core";
 import { createRlsClient } from "@/lib/supabase/server";
 
 /** Short calendar date, e.g. "Jun 9" — matches the design's queue metadata strings. */
@@ -41,6 +41,12 @@ export interface Workspace {
    * the subject-facing views strip this. Null ⇒ render the generic flag banner.
    */
   flagReason: string | null;
+  /**
+   * The synthesis objections from the final attempt (why it flagged) — the gate +
+   * judge issues, so the manager sees WHAT to address, not just THAT it's flagged.
+   * Approver-only (no peer content); null when the draft wasn't flagged.
+   */
+  flagDetail: SynthesisIssue[] | null;
 }
 
 /** SoD-filtered queue — `approver_queue` excludes ineligible reviews by absence. */
@@ -105,7 +111,7 @@ export async function getWorkspace(reviewId: string): Promise<Workspace | null> 
 
   const { data: draft } = await supabase
     .from("review_drafts")
-    .select("sections, flagged")
+    .select("sections, flagged, flag_detail")
     .eq("review_id", reviewId)
     .maybeSingle();
   const { data: q } = await supabase
@@ -113,6 +119,11 @@ export async function getWorkspace(reviewId: string): Promise<Workspace | null> 
     .select("subject_name, subject_department, below_floor, peer_count")
     .eq("review_id", reviewId)
     .maybeSingle();
+
+  // flag_detail holds the per-attempt objection log; surface the FINAL attempt's
+  // issues (the ones that ultimately flagged it) — most actionable for the manager.
+  const attemptIssues = (draft?.flag_detail as SynthesisIssue[][] | null) ?? null;
+  const flagDetail = attemptIssues && attemptIssues.length > 0 ? attemptIssues[attemptIssues.length - 1] : null;
 
   return {
     reviewId,
@@ -125,5 +136,6 @@ export async function getWorkspace(reviewId: string): Promise<Workspace | null> 
     belowFloor: Boolean(q?.below_floor),
     peerCount: (q?.peer_count as number | null) ?? null,
     flagReason: (review.flag_reason as string | null) ?? null,
+    flagDetail: flagDetail && flagDetail.length > 0 ? flagDetail : null,
   };
 }

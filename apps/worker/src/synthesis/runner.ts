@@ -87,12 +87,15 @@ export async function synthesizeReview(reviewId: string): Promise<"ready" | "fla
   }
 
   const flagged = result.outcome === "flagged";
+  // Objection log (per-attempt gate + judge issues) so the approver sees WHY it
+  // flagged. No peer content (the judge never sees peer text). Null when not flagged.
+  const flagDetail = flagged ? JSON.stringify(result.attemptIssues) : null;
   const { rows: draftRows } = await q<{ id: string }>(
-    `insert into review_drafts (company_id, cycle_id, employee_id, review_id, bundle_id, sections, flagged, flag_reason, attempt_count, generated_by_model)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'claude-opus-4-8')
+    `insert into review_drafts (company_id, cycle_id, employee_id, review_id, bundle_id, sections, flagged, flag_reason, flag_detail, attempt_count, generated_by_model)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'claude-opus-4-8')
      on conflict (cycle_id, employee_id) do update
        set sections = excluded.sections, flagged = excluded.flagged, flag_reason = excluded.flag_reason,
-           attempt_count = excluded.attempt_count, updated_at = now()
+           flag_detail = excluded.flag_detail, attempt_count = excluded.attempt_count, updated_at = now()
      returning id`,
     [
       review.company_id,
@@ -103,6 +106,7 @@ export async function synthesizeReview(reviewId: string): Promise<"ready" | "fla
       JSON.stringify(result.draft ?? {}),
       flagged,
       flagged ? "synthesis_gates_unmet" : null,
+      flagDetail,
       result.attempts,
     ],
   );

@@ -180,10 +180,19 @@ export function ApproverWorkspace({
             <IcoFlag s={18} />
           </span>
           <div className="fb-body">
-            <strong>This review is flagged.</strong>{" "}
-            {data.flagReason
-              ? data.flagReason
-              : "Peer feedback didn't meet the confidentiality threshold, so the draft is built from the self-review only. Review it carefully, edit as needed, set a rating, then finalize."}
+            <strong>This review is flagged for your review.</strong>{" "}
+            {data.flagDetail && data.flagDetail.length > 0
+              ? "The draft didn't pass the automated quality checks. Address the points below, edit the narrative as needed, set a rating, then finalize:"
+              : "Review it carefully, edit as needed, set a rating, then finalize."}
+            {data.flagDetail && data.flagDetail.length > 0 ? (
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                {data.flagDetail.map((issue, i) => (
+                  <li key={i} style={{ fontSize: 13, lineHeight: 1.45 }}>
+                    <strong style={{ textTransform: "capitalize" }}>{issue.category}:</strong> {issue.detail}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
       ) : null}

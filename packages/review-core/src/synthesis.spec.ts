@@ -131,6 +131,21 @@ describe("runSynthesis drives regenerate-then-flag against a misbehaving model",
     expect(res.issues.some((i) => i.category === "rating")).toBe(true);
   });
 
+  it("records per-attempt objections (the flag-detail log) so a manager can see WHY it flagged", async () => {
+    const generate = vi.fn(async () => ({ ...cleanDraft, summary: "Prepared with AI assistance." }));
+    const res = await runSynthesis({ generate, judge: lenientJudge }, cleanCtx);
+    expect(res.outcome).toBe("flagged");
+    expect(res.attemptIssues).toHaveLength(MAX_SYNTHESIS_ATTEMPTS);
+    // every attempt's objection is captured (not just the last)
+    expect(res.attemptIssues.every((a) => a.some((i) => i.category === "brand"))).toBe(true);
+  });
+
+  it("a ready draft logs one clean attempt (no objections)", async () => {
+    const generate = vi.fn(async () => cleanDraft);
+    const res = await runSynthesis({ generate, judge: lenientJudge }, cleanCtx);
+    expect(res.attemptIssues).toEqual([[]]);
+  });
+
   it("a deterministic generation failure ABORTS (never completes)", async () => {
     const generate = vi.fn(async () => {
       throw new DeterministicSynthesisError("invalid_request");
