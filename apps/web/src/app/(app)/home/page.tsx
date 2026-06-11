@@ -173,27 +173,14 @@ async function approverTasks(): Promise<HubTask[]> {
   return [...nomCards, ...reviewCards];
 }
 
-/** Admin-role cards: cycle health + nomination approvals, from real reads. */
+/** Admin-role cards: cycle-health AGGREGATES only (approvals are the Manager's task). */
 async function adminTasks(): Promise<HubTask[]> {
   const tasks: HubTask[] = [];
 
-  const [noms, monitor, cycle] = await Promise.all([
-    getNominationQueue(),
-    getCycleMonitor(),
-    getActiveCycle(),
-  ]);
-
-  const pendingNoms = noms.filter((n) => n.status === "pending").length;
-  if (pendingNoms > 0)
-    tasks.push({
-      id: "ad-noms",
-      title: "Nomination approvals waiting",
-      status: "in-review",
-      due: `${pendingNoms} to review`,
-      meta: "Direct reports’ peer nominations",
-      cta: "Open nominations",
-      href: "/nominations",
-    });
+  // Approving nominations is the Manager's task (route-guarded to approvers);
+  // surfacing it on the admin hub produced a dead "Open Nominations" CTA, so the
+  // admin home shows cycle-health aggregates only.
+  const [monitor, cycle] = await Promise.all([getCycleMonitor(), getActiveCycle()]);
 
   if (monitor) {
     const d = daysLeft(cycle?.closesAt ?? null);

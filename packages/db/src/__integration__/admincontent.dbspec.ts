@@ -43,6 +43,10 @@ const U_BADM = "cb000000-0000-0000-0000-00000000ad11";
 // review + dependent rows in CA.
 const REV = "ca000000-0000-0000-0000-0000000005e7";
 const REV2 = "ca000000-0000-0000-0000-0000000005e8"; // ADMG's OWN review (admin who is also a subject)
+const REV_DRAFT = "ca000000-0000-0000-0000-0000000005e9"; // pre-reveal (draft) — never listed/readable
+const REV_INREV = "ca000000-0000-0000-0000-0000000005ea"; // pre-reveal (in-review) — never listed/readable
+const SUBJD = "ca000000-0000-0000-0000-00000000e502"; // subject of REV_DRAFT
+const SUBJI = "ca000000-0000-0000-0000-00000000e503"; // subject of REV_INREV
 const ROST = "ca000000-0000-0000-0000-00000000a071";
 
 let epg: EmbeddedPostgres;
@@ -82,8 +86,8 @@ insert into review_content_grants (company_id, account_id, granted_by) values
   on conflict do nothing;
 
 -- a review with real content: reviews row + draft narrative + self-review.
-insert into reviews (id, company_id, cycle_id, employee_id, status, rating, flagged_internal)
-  values ('${REV}','${CA}','${CY}','${SUBJ}','in-review','Meets expectations', false)
+insert into reviews (id, company_id, cycle_id, employee_id, status, rating, flagged_internal, revealed_at)
+  values ('${REV}','${CA}','${CY}','${SUBJ}','awaiting-acknowledgement','Meets expectations', false, now())
   on conflict (id) do nothing;
 insert into review_drafts (id, company_id, cycle_id, employee_id, review_id, sections)
   values (gen_random_uuid(),'${CA}','${CY}','${SUBJ}','${REV}',
@@ -98,6 +102,17 @@ insert into self_reviews (id, company_id, cycle_id, employee_id, review_id, sect
 -- sealed list must HIDE it from ADMG (they read it as a subject post-reveal).
 insert into reviews (id, company_id, cycle_id, employee_id, status, rating, flagged_internal)
   values ('${REV2}','${CA}','${CY}','${ADMG}','locked','Exceeds expectations', false)
+  on conflict (id) do nothing;
+
+-- pre-reveal reviews (draft + in-review) for distinct subjects — the reveal gate
+-- must exclude these from BOTH the list and the by-id read.
+insert into accounts (id, company_id, email, display_name, status, auth_user_id) values
+  ('${SUBJD}','${CA}','subjd@ca.test','CA Subject D','active', null),
+  ('${SUBJI}','${CA}','subji@ca.test','CA Subject I','active', null)
+  on conflict do nothing;
+insert into reviews (id, company_id, cycle_id, employee_id, status, rating, flagged_internal) values
+  ('${REV_DRAFT}','${CA}','${CY}','${SUBJD}','draft', null, false),
+  ('${REV_INREV}','${CA}','${CY}','${SUBJI}','in-review', null, false)
   on conflict (id) do nothing;
 
 -- a CONFIDENTIAL raw peer row (+ its roster) — must NEVER surface to the admin.
@@ -233,6 +248,16 @@ describe("gated admin content read — the authorized path (1900)", () => {
     const ids = await listReviewIds(U_ADMG);
     expect(ids).toContain(REV); // the CA Subject's review — listed
     expect(ids).not.toContain(REV2); // ADMG's OWN review — excluded from the sealed list
+  });
+
+  it("reveal gate: drafts / in-review are NEVER listed or readable — reading opens at reveal", async () => {
+    const ids = await listReviewIds(U_ADMG);
+    expect(ids).toContain(REV); // awaiting-acknowledgement → listed
+    expect(ids).not.toContain(REV_DRAFT); // draft → never
+    expect(ids).not.toContain(REV_INREV); // in-review → never
+    // the by-id read is gated the SAME way (not just the list), writing no audit on denial
+    expect(await asAuth(U_ADMG, () => readReview(REV_DRAFT))).toBeNull();
+    expect(await asAuth(U_ADMG, () => readReview(REV_INREV))).toBeNull();
   });
 });
 
