@@ -58,6 +58,7 @@ const APT = "a1000000-0000-0000-0000-0000000000d2";
 const TP1 = "a1000000-0000-0000-0000-0000000000d3";
 const TP2 = "a1000000-0000-0000-0000-0000000000d4";
 const TP3 = "a1000000-0000-0000-0000-0000000000d5";
+const U_TP1 = "e1000000-0000-0000-0000-0000000000d3"; // auth user for TP1 (peer RLS context)
 const RT = "c1000000-0000-0000-0000-0000000000d1";
 const RST = "d1000000-0000-0000-0000-0000000000d1";
 const ADM = "a1000000-0000-0000-0000-0000000000da";
@@ -160,11 +161,12 @@ insert into nominations (company_id,cycle_id,employee_id,nominee_account_id,stat
 
 -- completion-trigger + meter fixtures: subject ST with an APPROVED roster (RST) of 3
 -- peers, a submitted self-review, 3 'new' peer requests; admin ADM for cycle_progress.
-insert into auth.users (id,email) values ('${U_ADM}','adm@riverbend.test') on conflict do nothing;
+insert into auth.users (id,email) values
+  ('${U_ADM}','adm@riverbend.test'), ('${U_TP1}','tp1@riverbend.test') on conflict do nothing;
 insert into accounts (id, company_id, email, display_name, status, auth_user_id) values
   ('${ST}','${C}','st@riverbend.test','Subject T','active', null),
   ('${APT}','${C}','apt@riverbend.test','Manager T','active', null),
-  ('${TP1}','${C}','tp1@riverbend.test','Peer T1','active', null),
+  ('${TP1}','${C}','tp1@riverbend.test','Peer T1','active','${U_TP1}'),
   ('${TP2}','${C}','tp2@riverbend.test','Peer T2','active', null),
   ('${TP3}','${C}','tp3@riverbend.test','Peer T3','active', null),
   ('${ADM}','${C}','adm@riverbend.test','Admin A','active','${U_ADM}')
@@ -675,6 +677,53 @@ describe("admin monitor meters pinned to real submission counts (cycle_progress)
       // ST's review never left 'draft' — proving the meters are submission-based.
       await client.query("reset role");
       expect((await client.query("select status from reviews where id=$1", [RT])).rows[0].status).toBe("draft");
+    } finally {
+      await client.query("rollback");
+    }
+  });
+});
+
+// ── peer_feedback: a CLOSED / declined request can no longer be acted on (RLS gate) ──
+// "Start on a closed request must be a no-op." peer_feedback_author_update gates writes
+// to state in ('new','draft'); a closed/declined/submitted row matches ZERO rows — a
+// STRUCTURAL guard (not UI- or prompt-guarded). The app surfaces the 0-row write as an
+// error rather than a silent success.
+describe("peer_feedback closed-request guard (RLS state-gate)", () => {
+  it("a CLOSED request cannot be submitted or declined by the peer (0 rows updated)", async () => {
+    await client.query("begin");
+    try {
+      await client.query("update peer_feedback set state='closed' where review_id=$1 and peer_account_id=$2", [RT, TP1]);
+      await client.query("set local role authenticated");
+      await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: U_TP1 })]);
+
+      const sub = await client.query(
+        "update peer_feedback set state='submitted', submitted_at=now() where review_id=$1 and peer_account_id=$2",
+        [RT, TP1],
+      );
+      expect(sub.rowCount).toBe(0); // submit blocked
+      const dec = await client.query(
+        "update peer_feedback set state='declined', declined_at=now() where review_id=$1 and peer_account_id=$2",
+        [RT, TP1],
+      );
+      expect(dec.rowCount).toBe(0); // decline blocked
+
+      const st = (await client.query("select state from peer_feedback where review_id=$1 and peer_account_id=$2", [RT, TP1])).rows[0].state;
+      expect(st).toBe("closed"); // unchanged
+    } finally {
+      await client.query("rollback");
+    }
+  });
+
+  it("an OPEN ('new') request CAN still be submitted by the peer (the gate doesn't over-block)", async () => {
+    await client.query("begin");
+    try {
+      await client.query("set local role authenticated");
+      await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: U_TP1 })]);
+      const sub = await client.query(
+        "update peer_feedback set state='submitted', submitted_at=now() where review_id=$1 and peer_account_id=$2",
+        [RT, TP1],
+      );
+      expect(sub.rowCount).toBe(1); // new → submitted is allowed
     } finally {
       await client.query("rollback");
     }

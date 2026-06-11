@@ -9,7 +9,10 @@ import { daysLeft, deadlineClass, deadlineText, type PeerAssignment } from "@/li
 const SUBJECT_TOKEN = "subject_label";
 
 function Row({ req, labels, done }: { req: PeerAssignment; labels: RoleLabels; done?: boolean }) {
-  const closed = req.state === "closed";
+  // A declined request is just as terminal as a window-closed one — both are
+  // non-actionable. (The bug: declined fell through to the active branch, rendering a
+  // live "Due … · N days left" + a "Start" CTA on a request that can't be acted on.)
+  const closed = req.state === "closed" || req.state === "declined";
   return (
     <Link href={`/peer/${req.reviewId}`} className="card pad peer-row interactive">
       <Avatar name={req.subjectName} cls="lg" />
@@ -36,8 +39,9 @@ function Row({ req, labels, done }: { req: PeerAssignment; labels: RoleLabels; d
               Submitted
             </span>
           ) : closed ? (
+            // Terminal: no live deadline countdown — just the closed/declined state.
             <span className="deadline closed">
-              <IcoClock s={13} sw={1.9} /> {deadlineText(req.deadlineAt)}
+              <IcoClock s={13} sw={1.9} /> {req.state === "declined" ? "Declined" : "Closed"}
             </span>
           ) : (
             <span className={`deadline ${deadlineClass(daysLeft(req.deadlineAt))}`.trim()}>
@@ -52,9 +56,11 @@ function Row({ req, labels, done }: { req: PeerAssignment; labels: RoleLabels; d
           ) : null}
         </div>
       </div>
-      {!done ? (
+      {!done && !closed ? (
+        // No CTA on terminal (submitted / closed / declined) cards — only an
+        // actionable request invites Start/Continue.
         <span className="peer-row-cta">
-          {closed ? "View" : req.state === "draft" ? "Continue" : "Start"} <IcoArrowRight s={16} />
+          {req.state === "draft" ? "Continue" : "Start"} <IcoArrowRight s={16} />
         </span>
       ) : null}
     </Link>

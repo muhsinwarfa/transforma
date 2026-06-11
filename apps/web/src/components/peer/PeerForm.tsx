@@ -250,7 +250,7 @@ export function PeerForm({
       ))}
 
       <div className="peer-decline-row">
-        <button className="btn btn-ghost sm" onClick={() => setMode("decline")} disabled={pending}>
+        <button className="btn btn-outline" onClick={() => setMode("decline")} disabled={pending}>
           I&apos;m not the right person to give this feedback
         </button>
       </div>

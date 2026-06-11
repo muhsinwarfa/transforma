@@ -60,13 +60,19 @@ export async function submitPeerFeedback(reviewId: string, answers: PeerAnswers)
   if (missing.length > 0) throw new Error("Please answer the required prompts before submitting.");
 
   const supabase = await createRlsClient();
-  // RLS allows UPDATE only while state in ('new','draft'); a re-submit on an
-  // already-submitted row matches zero rows (fail-closed, no un-submit).
-  const { error } = await supabase
+  // RLS allows UPDATE only while state in ('new','draft') — a closed / declined /
+  // already-submitted request matches ZERO rows (fail-closed; the structural guard).
+  // Surface that as an explicit error rather than a silent no-op (the list/page also
+  // guard: a closed request offers no Start CTA and renders read-only).
+  const { data: updated, error } = await supabase
     .from("peer_feedback")
     .update({ responses: clean, state: "submitted", submitted_at: new Date().toISOString() })
-    .eq("review_id", reviewId);
+    .eq("review_id", reviewId)
+    .select("review_id");
   if (error) throw new Error(error.message);
+  if (!updated || updated.length === 0) {
+    throw new Error("This request can no longer be submitted — it may have closed or already been handled.");
+  }
   await audit(session.companyId, "peer_feedback_submitted", session.accountId, reviewId);
   await maybeTriggerSynthesis(reviewId);
   revalidatePath("/peer");
@@ -76,11 +82,17 @@ export async function submitPeerFeedback(reviewId: string, answers: PeerAnswers)
 export async function declinePeerFeedback(reviewId: string, reason?: string) {
   const session = await requireSession();
   const supabase = await createRlsClient();
-  const { error } = await supabase
+  // Same state-gate as submit: a closed / declined / already-submitted request can no
+  // longer be declined (RLS USING state in ('new','draft') → zero rows). Surface it.
+  const { data: updated, error } = await supabase
     .from("peer_feedback")
     .update({ state: "declined", declined_at: new Date().toISOString() })
-    .eq("review_id", reviewId);
+    .eq("review_id", reviewId)
+    .select("review_id");
   if (error) throw new Error(error.message);
+  if (!updated || updated.length === 0) {
+    throw new Error("This request can no longer be declined — it may have closed or already been handled.");
+  }
   // The schema has no decline-reason column; rather than silently drop the chosen
   // reason, it rides into the append_audit target jsonb (no schema change).
   const trimmed = reason?.trim();
