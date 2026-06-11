@@ -22,6 +22,22 @@ async function audit(
 }
 
 /**
+ * Completion-driven synthesis (PROC-04 ruling): once this peer resolves their
+ * request (submit or decline), the review's inputs may now be complete — the
+ * self-review is submitted and every approved peer has resolved. Fire the
+ * completion check; app.close_feedback runs only if complete (it self-skips
+ * otherwise). Best-effort: the feedback-deadline cron remains the fallback sweep,
+ * so a hiccup here never blocks the peer's action or strands the review.
+ */
+async function maybeTriggerSynthesis(reviewId: string) {
+  try {
+    await createServiceRoleClient().schema("app").rpc("maybe_close_on_completion", { p_review_id: reviewId });
+  } catch {
+    /* best-effort; the deadline sweep is the fallback */
+  }
+}
+
+/**
  * Autosave a draft. Touches ONLY this peer's own peer_feedback row — the
  * single-author RLS (peer_account_id = current, state in 'new'|'draft') is the
  * floor; we never read or write the self-review, the draft, or anyone else's row.
@@ -52,6 +68,7 @@ export async function submitPeerFeedback(reviewId: string, answers: PeerAnswers)
     .eq("review_id", reviewId);
   if (error) throw new Error(error.message);
   await audit(session.companyId, "peer_feedback_submitted", session.accountId, reviewId);
+  await maybeTriggerSynthesis(reviewId);
   revalidatePath("/peer");
   revalidatePath(`/peer/${reviewId}`);
 }
@@ -74,6 +91,8 @@ export async function declinePeerFeedback(reviewId: string, reason?: string) {
     reviewId,
     trimmed ? { reason: trimmed } : {},
   );
+  // A decline RESOLVES this peer's request — the review may now be input-complete.
+  await maybeTriggerSynthesis(reviewId);
   revalidatePath("/peer");
   revalidatePath(`/peer/${reviewId}`);
 }

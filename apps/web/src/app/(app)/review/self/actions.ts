@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { createServiceRoleClient } from "@transforma/db";
 import { requireSession } from "@/lib/auth/session";
 import { SELF_PROMPTS, type SelfAnswers } from "@/lib/subject/selfReview";
 import { createRlsClient } from "@/lib/supabase/server";
@@ -31,6 +32,20 @@ async function upsertSelf(answers: SelfAnswers, submit: boolean) {
 
   const { error } = await supabase.from("self_reviews").upsert(payload, { onConflict: "cycle_id,employee_id" });
   if (error) throw new Error(error.message);
+
+  // Completion-driven synthesis (PROC-04 ruling): submitting the self-review may
+  // complete the inputs (every approved peer already resolved). Fire the completion
+  // check; app.close_feedback runs only if complete, self-skips otherwise. Best-
+  // effort — the feedback-deadline cron is the fallback sweep.
+  if (submit) {
+    try {
+      await createServiceRoleClient()
+        .schema("app")
+        .rpc("maybe_close_on_completion", { p_review_id: status.review_id });
+    } catch {
+      /* best-effort; the deadline sweep is the fallback */
+    }
+  }
   revalidatePath("/review/self");
 }
 
