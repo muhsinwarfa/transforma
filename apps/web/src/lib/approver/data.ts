@@ -120,10 +120,9 @@ export async function getWorkspace(reviewId: string): Promise<Workspace | null> 
     .eq("review_id", reviewId)
     .maybeSingle();
 
-  // flag_detail holds the per-attempt objection log; surface the FINAL attempt's
-  // issues (the ones that ultimately flagged it) — most actionable for the manager.
-  const attemptIssues = (draft?.flag_detail as SynthesisIssue[][] | null) ?? null;
-  const flagDetail = attemptIssues && attemptIssues.length > 0 ? attemptIssues[attemptIssues.length - 1] : null;
+  // flag_detail holds the FINAL attempt's objections (the gate + judge issues that
+  // ultimately flagged it) — what the manager needs to address.
+  const flagIssues = (draft?.flag_detail as SynthesisIssue[] | null) ?? null;
 
   return {
     reviewId,
@@ -136,6 +135,6 @@ export async function getWorkspace(reviewId: string): Promise<Workspace | null> 
     belowFloor: Boolean(q?.below_floor),
     peerCount: (q?.peer_count as number | null) ?? null,
     flagReason: (review.flag_reason as string | null) ?? null,
-    flagDetail: flagDetail && flagDetail.length > 0 ? flagDetail : null,
+    flagDetail: flagIssues && flagIssues.length > 0 ? flagIssues : null,
   };
 }
