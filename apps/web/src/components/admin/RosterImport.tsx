@@ -40,17 +40,15 @@ export function RosterImport({
   const [csv, setCsv] = useState("");
   const [pending, start] = useTransition();
 
-  // CSV template — clearly-fake sample rows that DEMONSTRATE the model: role is left
-  // blank for the inferred subjects, `manager_email` is an email and links each person
-  // to their manager, and the manager appears as a row (and as others' manager_email)
-  // so they're recognised as an approver. Admins aren't listed here.
-  const mgrLabel = roleLabels.approver || "Manager";
+  // CSV template — clearly-fake sample rows that DEMONSTRATE the model: manager_email
+  // IS the org chart, there is no role column. Two ICs report to Maya; Maya reports to
+  // a director; the director is top-level (blank manager_email) so isn't reviewed.
   const template =
-    "name,email,role,manager_email,department\n" +
-    `Jordan Lee,jordan.lee@example.com,,maya.chen@example.com,Clinical Operations\n` +
-    `Sam Rivera,sam.rivera@example.com,,maya.chen@example.com,Clinical Operations\n` +
-    `Maya Chen,maya.chen@example.com,${mgrLabel},,Clinical Operations\n`;
-  const anA = (w: string) => (/^[aeiou]/i.test(w.trim()) ? `an ${w}` : `a ${w}`);
+    "name,email,manager_email,department\n" +
+    `Sam Rivera,sam.rivera@example.com,maya.chen@example.com,Clinical Operations\n` +
+    `Jordan Lee,jordan.lee@example.com,maya.chen@example.com,Clinical Operations\n` +
+    `Maya Chen,maya.chen@example.com,avery.diaz@example.com,Clinical Operations\n` +
+    `Avery Diaz,avery.diaz@example.com,,Clinical Operations\n`;
 
   // Phase 1 — read-only validation. Writes nothing; renders the preview or errors.
   const validate = (csvText: string) => {
@@ -147,9 +145,10 @@ export function RosterImport({
             </span>
             <h3>Drop your roster CSV here</h3>
             <p>
-              Or click to browse. Columns: name, email, manager_email, department — plus an optional role. We work out
-              who&apos;s {anA(mgrLabel)} from manager_email; everyone else is {anA(roleLabels.subject || "team member")}.
-              ({roleLabels.admin || "Admin"} accounts are set up separately.)
+              Or click to browse. Columns: name, email, manager_email, department. We build the org chart from
+              manager_email — everyone with a manager is reviewed, and anyone listed as a manager_email also approves.
+              People with no manager_email take part but aren&apos;t reviewed this cycle. (A role or title column, if
+              present, is ignored.)
             </p>
             <span className="dz-formats">roster.csv · max 5 MB</span>
           </button>
@@ -196,19 +195,30 @@ export function RosterImport({
               ) : (
                 <>
                   <div className="is-title">{result.rows.length} people ready to add</div>
-                  <div className="is-sub">roster.csv · all rows valid · review and confirm below</div>
+                  <div className="is-sub">
+                    roster.csv · {result.rows.filter((r) => r.reviewed).length} of {result.rows.length} reviewed this
+                    cycle · review and confirm below
+                  </div>
                 </>
               )}
             </div>
           </div>
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          {result.info?.map((note, i) => (
+            <div className="notice info" key={i} style={{ marginTop: 12 }}>
+              <span className="n-ico">
+                <IcoCheck s={18} />
+              </span>
+              <span>{note}</span>
+            </div>
+          ))}
+          <div className="card" style={{ padding: 0, overflow: "hidden", marginTop: 12 }}>
             <div className="tf-table-wrap">
               <table className="tf-table">
                 <thead>
                   <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Role</th>
+                    <th>In this cycle</th>
                     <th>Manager email</th>
                     <th>Department</th>
                   </tr>
@@ -224,9 +234,22 @@ export function RosterImport({
                       </td>
                       <td className="cell-muted">{r.email}</td>
                       <td>
-                        <span className="role-chip sm">{roleLabels[r.role] || r.role}</span>
+                        {r.roles.length > 0 ? (
+                          r.roles.map((role) => (
+                            <span key={role} className="role-chip sm" style={{ marginRight: 4 }}>
+                              {roleLabels[role] || role}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="cell-muted">Participant</span>
+                        )}
+                        {!r.reviewed ? (
+                          <span className="cell-muted" style={{ display: "block", fontSize: 12 }}>
+                            not reviewed this cycle
+                          </span>
+                        ) : null}
                       </td>
-                      <td className="cell-muted">{r.manager}</td>
+                      <td className="cell-muted">{r.manager || "—"}</td>
                       <td className="cell-muted">{r.department}</td>
                     </tr>
                   ))}

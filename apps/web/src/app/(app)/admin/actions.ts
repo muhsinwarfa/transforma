@@ -211,15 +211,8 @@ export async function saveCycleDefaults(d: {
 }
 
 // ── roster CSV import — validate EVERY row; import NOTHING until all valid ───
-// The pure parser + role inference + teaching error copy live in
+// The pure parser + org-chart role inference + guard rails live in
 // `@/lib/admin/roster-parse` (unit-tested); the server actions below add the writes.
-
-/** The tenant's role labels — make role words + error copy tenant-aware in the parser. */
-async function companyRoleLabels(): Promise<Record<string, string>> {
-  const supabase = await createRlsClient();
-  const { data } = await supabase.from("companies").select("role_labels").limit(1).maybeSingle();
-  return (data?.role_labels as Record<string, string> | null) ?? {};
-}
 
 /** App origin for the set-password redirect — the onrender pilot URL until a custom domain. */
 function appBaseUrl(): string {
@@ -290,7 +283,7 @@ async function inviteImportedMember(rosterMemberId: string, email: string, name:
  */
 export async function validateRoster(csvText: string): Promise<ImportResult> {
   await requireRole("admin");
-  return parseAndValidateRoster(csvText, await companyRoleLabels());
+  return parseAndValidateRoster(csvText);
 }
 
 /**
@@ -301,18 +294,20 @@ export async function validateRoster(csvText: string): Promise<ImportResult> {
 export async function importRoster(csvText: string): Promise<ImportResult> {
   const session = await requireRole("admin");
   const cycleId = await activeCycleId();
-  const v = parseAndValidateRoster(csvText, await companyRoleLabels());
+  const v = parseAndValidateRoster(csvText);
   if (!v.ok) return v;
 
   // 1) upsert roster_members. manager_ref holds the manager's EMAIL; resolved in (3).
+  //    structural_roles is the FULL inferred set (subject and/or approver, possibly
+  //    empty for a not-reviewed participant) — peer is added later by the trigger.
   for (const r of v.rows) {
     await pgQuery(
       `insert into roster_members (company_id, cycle_id, email, display_name, department, manager_ref, structural_roles)
-         values ($1,$2,$3,$4,$5,$6, array[$7]::app_role[])
+         values ($1,$2,$3,$4,$5,$6, $7::app_role[])
        on conflict (cycle_id, lower(email)) do update
          set display_name = excluded.display_name, department = excluded.department,
              manager_ref = excluded.manager_ref, structural_roles = excluded.structural_roles, updated_at = now()`,
-      [session.companyId, cycleId, r.email, r.name, r.department || null, r.manager || null, r.role],
+      [session.companyId, cycleId, r.email, r.name, r.department || null, r.manager || null, r.roles],
     );
   }
 
@@ -347,7 +342,7 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
     .rpc("append_audit", { p_company: session.companyId, p_action: "roster_imported", p_actor: session.accountId, p_review: null, p_target: { count: v.rows.length, invited: invites.length } })
     .then(undefined, () => {});
   revalidatePath("/admin/roster");
-  return { ok: true, imported: v.rows.length, errors: [], rows: v.rows, invites };
+  return { ok: true, imported: v.rows.length, errors: [], rows: v.rows, invites, info: v.info };
 }
 
 export interface RosterMemberRow {

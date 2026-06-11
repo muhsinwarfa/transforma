@@ -1,115 +1,127 @@
 import { describe, expect, it } from "vitest";
-import { parseAndValidateRoster } from "./roster-parse";
+import { parseAndValidateRoster, type RosterRow } from "./roster-parse";
 
-// Custom (non-default) tenant labels — keeps this spec free of the literal role words
-// contract-lint bans, and proves the parser + error copy are label-driven, not hardcoded.
-const LABELS = { subject: "Crew", peer: "Peer", approver: "Lead", admin: "Owner" };
-
-const ok = (csv: string, labels = LABELS) => {
-  const r = parseAndValidateRoster(csv, labels);
+const ok = (csv: string) => {
+  const r = parseAndValidateRoster(csv);
   if (!r.ok) throw new Error(`expected ok; got errors: ${JSON.stringify(r.errors)}`);
   return r;
 };
-const fail = (csv: string, labels = LABELS) => {
-  const r = parseAndValidateRoster(csv, labels);
+const fail = (csv: string) => {
+  const r = parseAndValidateRoster(csv);
   if (r.ok) throw new Error("expected failure; parsed clean");
   return r;
 };
-const byEmail = (r: ReturnType<typeof ok>, email: string) => r.rows.find((row) => row.email === email)!;
+const by = (r: { rows: RosterRow[] }, email: string) => r.rows.find((row) => row.email === email)!;
 
-describe("parseAndValidateRoster — role is optional and inferred", () => {
-  it("infers approver for anyone listed as a manager_email; subject for everyone else", () => {
-    const csv = [
-      "name,email,role,manager_email,department",
-      "Alice,alice@example.com,,bob@example.com,Ops",
-      "Carol,carol@example.com,,bob@example.com,Ops",
-      "Bob,bob@example.com,,,Ops",
-    ].join("\n");
+// THE MODEL: manager_email is the whole org chart; there is no role column.
+describe("parseAndValidateRoster — org chart drives roles (chains)", () => {
+  // Sam, Jordan -> Maya -> Avery (director, blank). The canonical 4-row chain.
+  const CHAIN = [
+    "name,email,manager_email,department",
+    "Sam Rivera,sam@example.com,maya@example.com,Ops",
+    "Jordan Lee,jordan@example.com,maya@example.com,Ops",
+    "Maya Chen,maya@example.com,avery@example.com,Ops",
+    "Avery Diaz,avery@example.com,,Ops",
+  ].join("\n");
+
+  it("an IC with a manager is a reviewed subject", () => {
+    expect(by(ok(CHAIN), "sam@example.com").roles).toEqual(["subject"]);
+    expect(by(ok(CHAIN), "sam@example.com").reviewed).toBe(true);
+  });
+
+  it("a mid-level manager is BOTH subject and approver, and is reviewed", () => {
+    const maya = by(ok(CHAIN), "maya@example.com");
+    expect(maya.roles).toEqual(["subject", "approver"]); // has a manager (Avery) AND is one (Sam/Jordan)
+    expect(maya.reviewed).toBe(true);
+  });
+
+  it("a top-level person (blank manager_email) referenced as a manager is approver-only and NOT reviewed", () => {
+    const avery = by(ok(CHAIN), "avery@example.com");
+    expect(avery.roles).toEqual(["approver"]);
+    expect(avery.reviewed).toBe(false);
+  });
+
+  it("chains resolve naturally — every IC and the manager are reviewed, the director is not", () => {
+    const r = ok(CHAIN);
+    expect(r.rows.filter((x) => x.reviewed).map((x) => x.email).sort()).toEqual(
+      ["jordan@example.com", "maya@example.com", "sam@example.com"],
+    );
+  });
+
+  it("a person with no manager and never referenced participates but is not reviewed (roles [])", () => {
+    const csv = ["name,email,manager_email", "Pat,pat@example.com,boss@example.com", "Boss,boss@example.com,", "Lonervoter,lone@example.com,"].join("\n");
     const r = ok(csv);
-    expect(byEmail(r, "alice@example.com").role).toBe("subject");
-    expect(byEmail(r, "carol@example.com").role).toBe("subject");
-    expect(byEmail(r, "bob@example.com").role).toBe("approver"); // appears as a manager_email
-  });
-
-  it("works with NO role column at all (role fully inferred)", () => {
-    const csv = ["name,email,manager_email", "Alice,alice@example.com,bob@example.com", "Bob,bob@example.com,"].join("\n");
-    const r = ok(csv);
-    expect(byEmail(r, "bob@example.com").role).toBe("approver");
-    expect(byEmail(r, "alice@example.com").role).toBe("subject");
-  });
-
-  it("matches manager_email case-insensitively", () => {
-    const csv = ["name,email,manager_email", "Alice,alice@example.com,BOB@Example.com", "Bob,bob@example.com,"].join("\n");
-    expect(byEmail(ok(csv), "bob@example.com").role).toBe("approver");
-  });
-
-  it("an explicit role overrides the inference", () => {
-    // Bob is a manager_email (would infer approver) but is explicitly the subject label.
-    const csv = ["name,email,role,manager_email", "Alice,alice@example.com,,bob@example.com", "Bob,bob@example.com,Crew,"].join("\n");
-    expect(byEmail(ok(csv), "bob@example.com").role).toBe("subject");
+    expect(by(r, "lone@example.com").roles).toEqual([]); // blank manager + not referenced
+    expect(by(r, "lone@example.com").reviewed).toBe(false);
+    expect(by(r, "boss@example.com").roles).toEqual(["approver"]); // referenced by Pat
   });
 });
 
-describe("parseAndValidateRoster — teaching errors", () => {
-  it("a job-title-looking role value is rejected with a teaching message in tenant labels", () => {
-    const csv = ["name,email,role", "Pat,pat@example.com,Product Manager"].join("\n");
-    const r = fail(csv);
-    const e = r.errors[0]!;
-    expect(e.col).toBe("role");
-    expect(e.msg).toContain("looks like a job title");
-    expect(e.msg).toContain("Crew or Lead"); // tenant labels, not hardcoded role words
-  });
-
-  it("a name (not an email) in manager_email is rejected with a teaching message", () => {
-    const csv = ["name,email,manager_email", "Pat,pat@example.com,Bob Jones"].join("\n");
-    const r = fail(csv);
-    const e = r.errors[0]!;
+describe("parseAndValidateRoster — guard rails", () => {
+  it("rejects a manager_email that isn't a row in the file", () => {
+    const csv = ["name,email,manager_email", "Sam,sam@example.com,ghost@example.com"].join("\n");
+    const e = fail(csv).errors[0]!;
     expect(e.col).toBe("manager_email");
-    expect(e.msg).toContain("email address");
+    expect(e.msg).toContain("isn't in this file");
   });
 
-  it("the admin label is rejected as a CSV role (assigned in setup, never via CSV)", () => {
-    const csv = ["name,email,role", "Pat,pat@example.com,Owner"].join("\n");
-    const r = fail(csv);
-    expect(r.errors[0]!.msg).toContain("assigned during setup");
+  it("rejects a self-manager (own email as manager_email)", () => {
+    const csv = ["name,email,manager_email", "Sam,sam@example.com,sam@example.com"].join("\n");
+    expect(fail(csv).errors[0]!.msg).toContain("their own email");
   });
 
-  it("'people ops' synonym is also rejected as a CSV role", () => {
-    const csv = ["name,email,role", "Pat,pat@example.com,people ops"].join("\n");
-    expect(fail(csv).errors[0]!.msg).toContain("assigned during setup");
+  it("rejects a 2-person reporting loop A <-> B", () => {
+    const csv = ["name,email,manager_email", "A,a@example.com,b@example.com", "B,b@example.com,a@example.com"].join("\n");
+    const e = fail(csv).errors[0]!;
+    expect(e.msg).toContain("report to each other in a loop");
+    expect(e.msg).toContain("a@example.com");
+    expect(e.msg).toContain("b@example.com");
   });
 
-  it("the peer label is rejected as a CSV role (granted by the approval trigger)", () => {
-    const csv = ["name,email,role", "Pat,pat@example.com,Peer"].join("\n");
-    expect(fail(csv).errors[0]!.msg).toContain("automatic");
+  it("rejects a longer loop A -> B -> C -> A", () => {
+    const csv = ["name,email,manager_email", "A,a@example.com,b@example.com", "B,b@example.com,c@example.com", "C,c@example.com,a@example.com"].join("\n");
+    expect(fail(csv).errors[0]!.msg).toContain("report to each other in a loop");
   });
 
-  it("an invalid email fails the row", () => {
-    const csv = ["name,email", "Pat,not-an-email"].join("\n");
-    expect(fail(csv).errors.some((e) => e.col === "email")).toBe(true);
+  it("accepts a deep acyclic chain (no false loop positive)", () => {
+    const csv = ["name,email,manager_email", "A,a@example.com,b@example.com", "B,b@example.com,c@example.com", "C,c@example.com,d@example.com", "D,d@example.com,"].join("\n");
+    expect(ok(csv).rows.length).toBe(4);
   });
 
-  it("a missing name/email column fails the whole file", () => {
-    const csv = ["role,department", "Crew,Ops"].join("\n");
-    expect(fail(csv).errors[0]!.col).toBe("header");
+  it("rejects a duplicate email", () => {
+    const csv = ["name,email,manager_email", "Sam,sam@example.com,", "Sam Again,sam@example.com,"].join("\n");
+    expect(fail(csv).errors.some((e) => e.col === "email" && e.msg.includes("more than once"))).toBe(true);
+  });
+
+  it("rejects a name in manager_email", () => {
+    const csv = ["name,email,manager_email", "Sam,sam@example.com,Maya Chen"].join("\n");
+    expect(fail(csv).errors[0]!.col).toBe("manager_email");
+  });
+
+  it("rejects an invalid email and a missing required column", () => {
+    expect(fail(["name,email", "Sam,nope"].join("\n")).errors.some((e) => e.col === "email")).toBe(true);
+    expect(fail(["department", "Ops"].join("\n")).errors[0]!.col).toBe("header");
   });
 });
 
-describe("parseAndValidateRoster — lenient input", () => {
-  it("accepts header aliases (Full name / Work Email / Reports To / Dept)", () => {
-    const csv = ["Full name,Work Email,Reports To,Dept", "Alice,alice@example.com,bob@example.com,Ops", "Bob,bob@example.com,,Ops"].join("\n");
+describe("parseAndValidateRoster — back-compat + lenient input", () => {
+  it("ignores a legacy role/title column and says so, still inferring from manager_email", () => {
+    const csv = ["name,email,role,manager_email", "Sam,sam@example.com,Product Manager,maya@example.com", "Maya,maya@example.com,VP,"].join("\n");
     const r = ok(csv);
-    expect(byEmail(r, "bob@example.com").role).toBe("approver");
-    expect(byEmail(r, "alice@example.com").department).toBe("Ops");
+    expect(r.info?.some((n) => n.includes("ignored"))).toBe(true);
+    expect(by(r, "sam@example.com").roles).toEqual(["subject"]);
+    expect(by(r, "maya@example.com").roles).toEqual(["approver"]); // referenced, blank manager → not reviewed
+  });
+
+  it("accepts header aliases (Full name / Work Email / Reports To / Dept)", () => {
+    const csv = ["Full name,Work Email,Reports To,Dept", "Sam,sam@example.com,maya@example.com,Ops", "Maya,maya@example.com,,Ops"].join("\n");
+    const r = ok(csv);
+    expect(by(r, "maya@example.com").roles).toEqual(["approver"]);
+    expect(by(r, "sam@example.com").department).toBe("Ops");
   });
 
   it("honours quoted fields containing commas", () => {
-    const csv = ['name,email', '"Lee, Jordan",jordan@example.com'].join("\n");
+    const csv = ['name,email,manager_email', '"Lee, Jordan",jordan@example.com,'].join("\n");
     expect(ok(csv).rows[0]!.name).toBe("Lee, Jordan");
-  });
-
-  it("resolves the tenant's own approver label as an explicit role", () => {
-    const csv = ["name,email,role", "Bob,bob@example.com,Lead"].join("\n");
-    expect(ok(csv).rows[0]!.role).toBe("approver");
   });
 });
