@@ -1,0 +1,16 @@
+{
+  "name": "transforma-demo-rig",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Playwright + edge-tts + ffmpeg walkthrough-video pipeline for Transforma (demo-co tenant).",
+  "scripts": {
+    "render": "node render.mjs",
+    "narrate": "node render.mjs --only=narrate",
+    "record": "node render.mjs --only=record",
+    "assemble": "node render.mjs --only=assemble"
+  },
+  "dependencies": {
+    "playwright": "^1.49.1"
+  }
+}

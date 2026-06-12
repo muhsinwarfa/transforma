@@ -1,0 +1,8 @@
+node_modules/
+.work/
+clips/
+*.webm
+walkthrough*.mp4
+demo-map.json
+narration/*.mp3
+narration/bakeoff/

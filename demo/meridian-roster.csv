@@ -1,0 +1,10 @@
+name,email,manager_email,department
+Amal Diiriye,amal.diiriye@meridian.example,farah.ade@meridian.example,Clinical Ops
+Bashiir Noor,bashiir.noor@meridian.example,farah.ade@meridian.example,Clinical Ops
+Caasho Warsame,caasho.warsame@meridian.example,farah.ade@meridian.example,Clinical Ops
+Daahir Jama,daahir.jama@meridian.example,farah.ade@meridian.example,Clinical Ops
+Farah Ade,farah.ade@meridian.example,halima.said@meridian.example,Clinical Ops
+Eedo Hassan,eedo.hassan@meridian.example,omar.yusuf@meridian.example,Operations
+Faisal Aden,faisal.aden@meridian.example,omar.yusuf@meridian.example,Operations
+Omar Yusuf,omar.yusuf@meridian.example,halima.said@meridian.example,Operations
+Halima Said,halima.said@meridian.example,,Executive
