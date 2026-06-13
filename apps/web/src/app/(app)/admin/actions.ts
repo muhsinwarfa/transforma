@@ -372,7 +372,7 @@ export async function importRoster(csvText: string): Promise<ImportResult> {
     //    approvers are a no-op; the manager's roster row is left untouched).
     await pgQuery(
       `insert into account_roles (account_id, role, company_id)
-         select distinct rm.manager_account_id, 'approver'::app_role, $3
+         select distinct rm.manager_account_id, 'approver'::app_role, $3::uuid
            from roster_members rm
           where rm.cycle_id = $1 and lower(rm.email) = any($2::text[]) and rm.manager_account_id is not null
        on conflict (account_id, role) do nothing`,
