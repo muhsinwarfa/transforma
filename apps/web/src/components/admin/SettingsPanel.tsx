@@ -412,6 +412,8 @@ function ReassignCard({ participants }: { participants: Participant[] }) {
                 start(async () => {
                   try {
                     await reassignApprover(subject, approver);
+                    setSubject("");
+                    setApprover("");
                     close();
                     toast("Review reassigned to a new manager.");
                     router.refresh();
@@ -465,6 +467,8 @@ function ExtendCard({ participants }: { participants: Participant[] }) {
                 start(async () => {
                   try {
                     await extendDeadline(subject, "feedback", new Date(date).toISOString());
+                    setSubject("");
+                    setDate("");
                     close();
                     toast("Deadline extended for this participant.");
                     router.refresh();
@@ -514,6 +518,7 @@ function WithdrawCard({ participants }: { participants: Participant[] }) {
                 start(async () => {
                   try {
                     await withdrawSubject(subject);
+                    setSubject("");
                     close();
                     toast("Participant withdrawn from the cycle.");
                     router.refresh();
@@ -546,20 +551,30 @@ function Picker({
   onChange: (v: string) => void;
   participants: Participant[];
 }) {
+  // The field owns the typed TEXT (`query`); the selected `accountId` (`value`) is an
+  // OUTPUT, resolved on an exact name match. Previously the input's value was derived
+  // from `value`, so any partial keystroke that didn't yet match a full name resolved to
+  // "" and wiped the field every character — the input appeared un-typeable. The form
+  // unmounts on close (ActionShell), so this local state re-initialises per open.
+  const nameOf = (id: string) => participants.find((p) => p.accountId === id)?.name ?? "";
+  const [query, setQuery] = useState(() => nameOf(value));
+  const listId = `picker-${label.replace(/\s+/g, "-")}`;
   return (
     <div className="field">
       <label className="field-label">{label}</label>
       <input
         className="input"
-        list={`picker-${label.replace(/\s+/g, "-")}`}
-        value={value ? participants.find((p) => p.accountId === value)?.name ?? value : ""}
+        list={listId}
+        value={query}
         onChange={(e) => {
-          const match = participants.find((p) => p.name === e.target.value);
+          const text = e.target.value;
+          setQuery(text);
+          const match = participants.find((p) => p.name === text);
           onChange(match ? match.accountId : "");
         }}
         placeholder={label.toLowerCase().includes("manager") ? "Search a manager…" : "Search a participant…"}
       />
-      <datalist id={`picker-${label.replace(/\s+/g, "-")}`}>
+      <datalist id={listId}>
         {participants.map((p) => (
           <option key={p.accountId} value={p.name}>
             {p.department ?? ""}
