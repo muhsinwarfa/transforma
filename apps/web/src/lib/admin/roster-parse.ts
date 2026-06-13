@@ -29,6 +29,9 @@ export interface RosterRow {
   roles: string[];
   /** gets a review this cycle (== roles includes "subject" == has a manager_email) */
   reviewed: boolean;
+  /** already on the cycle's roster — matched + left untouched on import (no dup, no
+   *  re-invite, roles/reviews preserved). Only !existing rows are created + invited. */
+  existing: boolean;
   /** manager_email, lowercased; "" for a top-level person */
   manager: string;
   department: string;
@@ -113,7 +116,13 @@ function findManagerCycle(emails: string[], managerOf: Map<string, string | null
 // Pure parse + validation — performs NO writes. Lenient on input (quoted fields,
 // header aliases, case/whitespace); the strict preview shows the NORMALIZED rows for
 // confirm. Shared by validate + commit (identical rules). See THE MODEL above.
-export function parseAndValidateRoster(csvText: string): ImportResult {
+//
+// INCREMENTAL ADD: `existingEmails` are the people already on the cycle's roster.
+// manager_email resolves against (file rows) UNION (existing roster), so a new hire can
+// point at a manager who's already on the cycle without re-listing them. Rows whose
+// email is already on the roster are flagged `existing` (matched + left untouched on
+// import); only genuinely new rows are created + invited.
+export function parseAndValidateRoster(csvText: string, existingEmails: string[] = []): ImportResult {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length < 2)
     return { ok: false, imported: 0, errors: [{ row: 0, col: "file", msg: "That file has no data rows — include a header row plus at least one person.", value: "" }], rows: [] };
@@ -154,14 +163,18 @@ export function parseAndValidateRoster(csvText: string): ImportResult {
   }
   if (errors.length > 0) return withInfo({ ok: false, imported: 0, errors, rows: [] }, info);
 
-  // org-chart guard rails (need the whole file): no self-manager, manager must be in-file.
+  // org-chart guard rails: no self-manager; manager must resolve against the file OR the
+  // EXISTING cycle roster (incremental add — a new hire's manager may already be on the
+  // cycle, so we never force re-listing existing people).
+  const existingSet = new Set(existingEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const emails = new Set(parsed.map((p) => p.email));
+  const known = new Set([...emails, ...existingSet]);
   for (const p of parsed) {
     if (!p.manager) continue;
     if (p.manager === p.email)
       errors.push({ row: p.row, col: "manager_email", msg: "This person lists their own email as their manager — leave manager_email blank for a top-level person.", value: p.manager });
-    else if (!emails.has(p.manager))
-      errors.push({ row: p.row, col: "manager_email", msg: `Manager "${p.manager}" isn't in this file — add them as their own row, or leave manager_email blank for a top-level person.`, value: p.manager });
+    else if (!known.has(p.manager))
+      errors.push({ row: p.row, col: "manager_email", msg: `We couldn't find "${p.manager}" in this file or on the cycle's roster. Add them as a row, or leave manager_email blank for a top-level person.`, value: p.manager });
   }
   if (errors.length > 0) return withInfo({ ok: false, imported: 0, errors, rows: [] }, info);
 
@@ -179,13 +192,17 @@ export function parseAndValidateRoster(csvText: string): ImportResult {
     return withInfo({ ok: false, imported: 0, errors, rows: [] }, info);
   }
 
-  // infer roles from the org chart (see THE MODEL).
+  // infer roles from the org chart (see THE MODEL). Rows already on the roster are
+  // flagged `existing` — the import matches + leaves them untouched.
   const referenced = new Set(parsed.filter((p) => p.manager).map((p) => p.manager));
   const rows: RosterRow[] = parsed.map((p) => {
     const roles: string[] = [];
     if (p.manager) roles.push("subject"); // has a manager ⇒ reviewed
     if (referenced.has(p.email)) roles.push("approver"); // referenced ⇒ approves others
-    return { name: p.name, email: p.email, roles, reviewed: roles.includes("subject"), manager: p.manager, department: p.department };
+    return { name: p.name, email: p.email, roles, reviewed: roles.includes("subject"), existing: existingSet.has(p.email), manager: p.manager, department: p.department };
   });
+  const matched = rows.filter((r) => r.existing).length;
+  if (matched > 0)
+    info.push(`${matched} ${matched === 1 ? "person is" : "people are"} already on the cycle — matched and left unchanged (no duplicate, no re-invite). Re-importing doesn't change an existing person's manager, roles, or review.`);
   return withInfo({ ok: true, imported: 0, errors: [], rows }, info);
 }

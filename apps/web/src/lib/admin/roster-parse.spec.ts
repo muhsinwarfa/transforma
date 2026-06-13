@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { parseAndValidateRoster, type RosterRow } from "./roster-parse";
 
-const ok = (csv: string) => {
-  const r = parseAndValidateRoster(csv);
+const ok = (csv: string, existing: string[] = []) => {
+  const r = parseAndValidateRoster(csv, existing);
   if (!r.ok) throw new Error(`expected ok; got errors: ${JSON.stringify(r.errors)}`);
   return r;
 };
-const fail = (csv: string) => {
-  const r = parseAndValidateRoster(csv);
+const fail = (csv: string, existing: string[] = []) => {
+  const r = parseAndValidateRoster(csv, existing);
   if (r.ok) throw new Error("expected failure; parsed clean");
   return r;
 };
@@ -58,11 +58,11 @@ describe("parseAndValidateRoster — org chart drives roles (chains)", () => {
 });
 
 describe("parseAndValidateRoster — guard rails", () => {
-  it("rejects a manager_email that isn't a row in the file", () => {
+  it("rejects a manager_email in neither the file nor the cycle roster", () => {
     const csv = ["name,email,manager_email", "Sam,sam@example.com,ghost@example.com"].join("\n");
     const e = fail(csv).errors[0]!;
     expect(e.col).toBe("manager_email");
-    expect(e.msg).toContain("isn't in this file");
+    expect(e.msg).toMatch(/couldn't find|this file or/i);
   });
 
   it("rejects a self-manager (own email as manager_email)", () => {
@@ -123,5 +123,74 @@ describe("parseAndValidateRoster — back-compat + lenient input", () => {
   it("honours quoted fields containing commas", () => {
     const csv = ['name,email,manager_email', '"Lee, Jordan",jordan@example.com,'].join("\n");
     expect(ok(csv).rows[0]!.name).toBe("Lee, Jordan");
+  });
+});
+
+// The real-world "add a new hire mid-cycle" workflow: a single-row upload whose manager
+// is already on the cycle, with no need to re-list existing people. manager_email
+// resolves against (file rows) UNION (existing cycle roster).
+describe("parseAndValidateRoster — incremental add against an existing roster", () => {
+  it("(a) a new hire whose manager is an EXISTING cycle member passes — no manager row needed", () => {
+    const csv = ["name,email,manager_email", "New Hire,newhire@example.com,hodan@example.com"].join("\n");
+    const r = ok(csv, ["hodan@example.com", "other@example.com"]); // Hodan already a Manager this cycle
+    expect(r.rows.length).toBe(1);
+    const nh = by(r, "newhire@example.com");
+    expect(nh.roles).toEqual(["subject"]);
+    expect(nh.existing).toBe(false);
+    // the manager is NOT echoed as a row — the file stays a clean single-row add
+    expect(r.rows.find((x) => x.email === "hodan@example.com")).toBeUndefined();
+  });
+
+  it("still errors when the manager is in NEITHER the file nor the cycle roster", () => {
+    const csv = ["name,email,manager_email", "New,new@example.com,ghost@example.com"].join("\n");
+    expect(fail(csv, ["hodan@example.com"]).errors[0]!.col).toBe("manager_email");
+  });
+
+  it("(b) re-importing an EXISTING member flags it `existing` (matched, not a duplicate) + notes it", () => {
+    const csv = ["name,email,manager_email", "Hodan,hodan@example.com,"].join("\n");
+    const r = ok(csv, ["hodan@example.com"]);
+    expect(by(r, "hodan@example.com").existing).toBe(true);
+    expect(r.info?.some((n) => /already on the cycle/i.test(n))).toBe(true);
+    // (importRoster filters !existing, so this row is matched + left untouched: no
+    //  duplicate insert, no re-invite, roles/reviews preserved.)
+  });
+
+  it("mixes new + existing in one file — only the genuinely new row is flagged for creation", () => {
+    const csv = ["name,email,manager_email", "Hodan,hodan@example.com,", "New,new@example.com,hodan@example.com"].join("\n");
+    const r = ok(csv, ["hodan@example.com"]); // Hodan already on roster; New reports to Hodan
+    expect(by(r, "hodan@example.com").existing).toBe(true);
+    expect(by(r, "new@example.com").existing).toBe(false);
+    expect(by(r, "new@example.com").roles).toEqual(["subject"]);
+  });
+
+  it("matching is case-insensitive (existing email in any case)", () => {
+    const csv = ["name,email,manager_email", "New,new@example.com,HODAN@Example.com"].join("\n");
+    const r = ok(csv, ["hodan@example.com"]);
+    expect(by(r, "new@example.com").roles).toEqual(["subject"]); // resolved against existing, no error
+  });
+
+  it("default existing=[] preserves file-only behaviour (no regression)", () => {
+    const csv = ["name,email,manager_email", "A,a@example.com,b@example.com", "B,b@example.com,"].join("\n");
+    expect(by(ok(csv), "b@example.com").roles).toEqual(["approver"]);
+    expect(by(ok(csv), "a@example.com").existing).toBe(false);
+  });
+
+  it("matches the existing-flag case-insensitively (existing email supplied in mixed case)", () => {
+    const csv = ["name,email,manager_email", "Hodan,hodan@example.com,"].join("\n");
+    expect(by(ok(csv, ["HODAN@Example.com"]), "hodan@example.com").existing).toBe(true);
+  });
+
+  it("self-manager still errors even when the email is an existing member", () => {
+    const csv = ["name,email,manager_email", "Hodan,hodan@example.com,hodan@example.com"].join("\n");
+    expect(fail(csv, ["hodan@example.com"]).errors[0]!.msg).toContain("their own email");
+  });
+
+  it("a file row can be a manager (referenced) while its own manager is an existing member", () => {
+    // B is existing-only (not a file row); A reports to B (existing) and manages C (file).
+    const csv = ["name,email,manager_email", "A,a@example.com,b@example.com", "C,c@example.com,a@example.com"].join("\n");
+    const r = ok(csv, ["b@example.com"]);
+    expect(by(r, "a@example.com").roles).toEqual(["subject", "approver"]); // has mgr B (existing) + referenced by C
+    expect(by(r, "c@example.com").roles).toEqual(["subject"]);
+    expect(by(r, "a@example.com").existing).toBe(false);
   });
 });

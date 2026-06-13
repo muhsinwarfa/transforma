@@ -70,7 +70,11 @@ export function RosterImport({
         setResult(r);
         if (r.ok) {
           setState("confirmed");
-          toast(`${r.imported} people imported to ${cycleName}.`);
+          toast(
+            r.imported === 0
+              ? "Everyone listed was already on the cycle — nothing new to add."
+              : `${r.imported} ${r.imported === 1 ? "person" : "people"} added to ${cycleName}.`,
+          );
           router.refresh();
         } else {
           setState("error");
@@ -188,16 +192,22 @@ export function RosterImport({
               {state === "confirmed" ? (
                 <>
                   <div className="is-title">
-                    {result.imported} people imported to {cycleName}
+                    {result.imported} {result.imported === 1 ? "person" : "people"} added to {cycleName}
                   </div>
                   <div className="is-sub">roster.csv · added to the cycle</div>
                 </>
               ) : (
                 <>
-                  <div className="is-title">{result.rows.length} people ready to add</div>
+                  <div className="is-title">
+                    {result.rows.filter((r) => !r.existing).length} to add
+                    {result.rows.some((r) => r.existing)
+                      ? ` · ${result.rows.filter((r) => r.existing).length} already in cycle`
+                      : ""}
+                  </div>
                   <div className="is-sub">
-                    roster.csv · {result.rows.filter((r) => r.reviewed).length} of {result.rows.length} reviewed this
-                    cycle · review and confirm below
+                    {result.rows.some((r) => !r.existing)
+                      ? `roster.csv · ${result.rows.filter((r) => !r.existing && r.reviewed).length} of ${result.rows.filter((r) => !r.existing).length} reviewed this cycle · review and confirm below`
+                      : "roster.csv · everyone listed is already on the cycle — nothing new to add"}
                   </div>
                 </>
               )}
@@ -234,22 +244,28 @@ export function RosterImport({
                       </td>
                       <td className="cell-muted">{r.email}</td>
                       <td>
-                        {r.roles.length > 0 ? (
-                          r.roles.map((role) => (
-                            <span key={role} className="role-chip sm" style={{ marginRight: 4 }}>
-                              {roleLabels[role] || role}
-                            </span>
-                          ))
+                        {r.existing ? (
+                          <span className="cell-muted">Already in cycle — no change</span>
                         ) : (
-                          <span className="cell-muted">Participant</span>
+                          <>
+                            {r.roles.length > 0 ? (
+                              r.roles.map((role) => (
+                                <span key={role} className="role-chip sm" style={{ marginRight: 4 }}>
+                                  {roleLabels[role] || role}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="cell-muted">Participant</span>
+                            )}
+                            {!r.reviewed ? (
+                              <span className="cell-muted" style={{ display: "block", fontSize: 12 }}>
+                                not reviewed this cycle
+                              </span>
+                            ) : null}
+                          </>
                         )}
-                        {!r.reviewed ? (
-                          <span className="cell-muted" style={{ display: "block", fontSize: 12 }}>
-                            not reviewed this cycle
-                          </span>
-                        ) : null}
                       </td>
-                      <td className="cell-muted">{r.manager || "—"}</td>
+                      <td className="cell-muted">{r.existing ? "—" : r.manager || "—"}</td>
                       <td className="cell-muted">{r.department}</td>
                     </tr>
                   ))}
@@ -259,7 +275,7 @@ export function RosterImport({
           </div>
           {state === "preview" ? (
             <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-              <button className="btn btn-primary" onClick={commit} disabled={pending}>
+              <button className="btn btn-primary" onClick={commit} disabled={pending || !result.rows.some((r) => !r.existing)}>
                 {pending ? (
                   <>
                     <IcoSpinner s={16} /> Adding…

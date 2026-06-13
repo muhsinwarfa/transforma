@@ -25,6 +25,19 @@ async function activeCycleId(): Promise<string> {
   return data.id as string;
 }
 
+// Lowercased emails of everyone with a roster row on this cycle — INCLUDING withdrawn
+// members (their row still holds the (cycle, email) unique slot). Used so the importer
+// (a) resolves a new hire's manager_email against existing members and (b) matches anyone
+// already on the roster as `existing` (left untouched) instead of silently no-op'ing an
+// insert against a conflicting row. Reinstating a withdrawn member is a separate flow.
+async function cycleRosterEmails(cycleId: string): Promise<string[]> {
+  const { rows } = await pgQuery<{ email: string }>(
+    `select lower(email) as email from roster_members where cycle_id = $1`,
+    [cycleId],
+  );
+  return rows.map((r) => r.email);
+}
+
 async function reviewIdFor(cycleId: string, employeeId: string): Promise<string> {
   // Admins no longer have RLS read of `reviews` (1300 — aggregate-only oversight),
   // so resolve the review id via the service-role client. This only reads the id;
@@ -283,66 +296,113 @@ async function inviteImportedMember(rosterMemberId: string, email: string, name:
  */
 export async function validateRoster(csvText: string): Promise<ImportResult> {
   await requireRole("admin");
-  return parseAndValidateRoster(csvText);
+  // preview resolves managers against the existing cycle roster too (incremental add).
+  let existing: string[] = [];
+  try { existing = await cycleRosterEmails(await activeCycleId()); } catch { /* no active cycle — validate file-only */ }
+  return parseAndValidateRoster(csvText, existing);
 }
 
 /**
- * A3 phase 2 — the commit. Re-validates (defensive) then runs the existing
- * all-or-nothing insert + roster_imported audit. The write path is unchanged; the
- * read-only validate pass is simply split out in front of it.
+ * A3 phase 2 — the commit. Incremental + idempotent: rows already on the cycle roster are
+ * matched and LEFT UNTOUCHED (no re-insert, no role/manager overwrite, no re-invite —
+ * existing reviews/roles preserved); only genuinely new people are inserted, invited, and
+ * manager-resolved. Re-importing an existing member is a no-op.
  */
 export async function importRoster(csvText: string): Promise<ImportResult> {
   const session = await requireRole("admin");
   const cycleId = await activeCycleId();
-  const v = parseAndValidateRoster(csvText);
+  const existing = await cycleRosterEmails(cycleId);
+  const v = parseAndValidateRoster(csvText, existing);
   if (!v.ok) return v;
 
-  // 1) upsert roster_members. manager_ref holds the manager's EMAIL; resolved in (3).
-  //    structural_roles is the FULL inferred set (subject and/or approver, possibly
-  //    empty for a not-reviewed participant) — peer is added later by the trigger.
-  for (const r of v.rows) {
+  // INCREMENTAL ADD: rows already on the cycle roster are matched and LEFT UNTOUCHED —
+  // no re-insert, no role/manager change, no re-invite (existing reviews/roles preserved).
+  // Only genuinely new people are created + invited.
+  const newRows = v.rows.filter((r) => !r.existing);
+  const newEmails = newRows.map((r) => r.email);
+
+  // 1) insert the NEW people. manager_ref holds the manager's EMAIL (resolved in 3);
+  //    structural_roles is the FULL inferred set. `do nothing` on conflict so a
+  //    pre-existing/racing row is never overwritten — re-importing a person is a no-op.
+  for (const r of newRows) {
     await pgQuery(
       `insert into roster_members (company_id, cycle_id, email, display_name, department, manager_ref, structural_roles)
          values ($1,$2,$3,$4,$5,$6, $7::app_role[])
-       on conflict (cycle_id, lower(email)) do update
-         set display_name = excluded.display_name, department = excluded.department,
-             manager_ref = excluded.manager_ref, structural_roles = excluded.structural_roles, updated_at = now()`,
+       on conflict (cycle_id, lower(email)) do nothing`,
       [session.companyId, cycleId, r.email, r.name, r.department || null, r.manager || null, r.roles],
     );
   }
 
-  // 2) provision + invite everyone not yet linked to an account (account_id IS NULL).
-  //    Each gets a surfaced set-password link (reliable) + a best-effort branded email.
-  const { rows: pending } = await pgQuery<{ id: string; email: string; display_name: string }>(
-    `select id, email, display_name from roster_members
-      where cycle_id = $1 and account_id is null and lower(email) = any($2::text[])
-      order by display_name`,
-    [cycleId, v.rows.map((r) => r.email)],
-  );
+  // 2) provision + invite ONLY the new people not yet linked to an account.
   const invites: InvitedMember[] = [];
-  for (const m of pending) {
-    try {
-      invites.push(await inviteImportedMember(m.id, m.email, m.display_name, session.companyId));
-    } catch (e) {
-      invites.push({ email: m.email, name: m.display_name, link: null, emailed: false, error: e instanceof Error ? e.message : "Couldn't provision this person." });
+  if (newEmails.length > 0) {
+    const { rows: pending } = await pgQuery<{ id: string; email: string; display_name: string }>(
+      `select id, email, display_name from roster_members
+        where cycle_id = $1 and account_id is null and lower(email) = any($2::text[])
+        order by display_name`,
+      [cycleId, newEmails],
+    );
+    for (const m of pending) {
+      try {
+        invites.push(await inviteImportedMember(m.id, m.email, m.display_name, session.companyId));
+      } catch (e) {
+        invites.push({ email: m.email, name: m.display_name, link: null, emailed: false, error: e instanceof Error ? e.message : "Couldn't provision this person." });
+      }
     }
   }
 
-  // 3) resolve manager_email → manager_account_id now that every account exists.
-  await pgQuery(
-    `update roster_members rm set manager_account_id = a.id, updated_at = now()
-       from accounts a
-      where rm.cycle_id = $1 and rm.manager_ref is not null and rm.manager_ref <> ''
-        and a.company_id = $2 and lower(a.email) = lower(rm.manager_ref)`,
-    [cycleId, session.companyId],
-  );
+  // 3) resolve manager_email → manager_account_id for the NEW rows only (a new hire's
+  //    manager may be an EXISTING member — matched here by email). Existing rows are
+  //    never updated, so their manager link / updated_at stay untouched.
+  if (newEmails.length > 0) {
+    await pgQuery(
+      `update roster_members rm set manager_account_id = a.id, updated_at = now()
+         from accounts a
+        where rm.cycle_id = $1 and lower(rm.email) = any($2::text[])
+          and rm.manager_ref is not null and rm.manager_ref <> ''
+          and a.company_id = $3 and lower(a.email) = lower(rm.manager_ref)`,
+      [cycleId, newEmails, session.companyId],
+    );
 
+    // 4) a new hire's manager MUST hold the `approver` account_role — that role (not
+    //    reviews.approver_id) is what the /approvals route guards + requireRole("approver")
+    //    on finalize/rating/edit check. Without it an existing member who first becomes a
+    //    manager via this add could never finalize the new hire's review. Grant it
+    //    additively to every account that now manages a NEW hire (idempotent — already-
+    //    approvers are a no-op; the manager's roster row is left untouched).
+    await pgQuery(
+      `insert into account_roles (account_id, role, company_id)
+         select distinct rm.manager_account_id, 'approver'::app_role, $3
+           from roster_members rm
+          where rm.cycle_id = $1 and lower(rm.email) = any($2::text[]) and rm.manager_account_id is not null
+       on conflict (account_id, role) do nothing`,
+      [cycleId, newEmails, session.companyId],
+    );
+
+    // 4b) keep the roster record in sync with the grant: append `approver` to the
+    //     manager's structural_roles so the roster list shows the tenant approver label
+    //     ("Manager") once they manage someone. Additive + guarded — already-approvers
+    //     (e.g. a manager who was already one) are not touched.
+    await pgQuery(
+      `update roster_members rm
+          set structural_roles = array_append(rm.structural_roles, 'approver'::app_role), updated_at = now()
+        where rm.cycle_id = $1
+          and not ('approver' = any(rm.structural_roles))
+          and rm.account_id in (
+            select distinct m.manager_account_id from roster_members m
+             where m.cycle_id = $1 and lower(m.email) = any($2::text[]) and m.manager_account_id is not null
+          )`,
+      [cycleId, newEmails],
+    );
+  }
+
+  const matched = v.rows.length - newRows.length;
   await createServiceRoleClient()
     .schema("app")
-    .rpc("append_audit", { p_company: session.companyId, p_action: "roster_imported", p_actor: session.accountId, p_review: null, p_target: { count: v.rows.length, invited: invites.length } })
+    .rpc("append_audit", { p_company: session.companyId, p_action: "roster_imported", p_actor: session.accountId, p_review: null, p_target: { added: newRows.length, matched, invited: invites.length } })
     .then(undefined, () => {});
   revalidatePath("/admin/roster");
-  return { ok: true, imported: v.rows.length, errors: [], rows: v.rows, invites, info: v.info };
+  return { ok: true, imported: newRows.length, errors: [], rows: v.rows, invites, info: v.info };
 }
 
 export interface RosterMemberRow {
